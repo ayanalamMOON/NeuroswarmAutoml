@@ -342,3 +342,41 @@ class ParallelRunner:
                 cand.update_pbest()
 
         return candidates
+
+    def evaluate_single_candidate(
+        self,
+        candidate: Candidate,
+        epochs: int,
+        config: Dict[str, Any],
+        device_str: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Evaluates a single candidate and returns a dictionary of metrics."""
+        if device_str is None:
+            device_str = "cuda:0" if torch.cuda.is_available() else "cpu"
+
+        val_acc, params, flops = train_and_evaluate_candidate(candidate, epochs, config, device_str)
+        candidate.fitness = val_acc
+        candidate.param_count = params
+        candidate.flops = flops
+        candidate.evaluated_epochs += epochs
+        candidate.is_ground_truth = True
+        candidate.uncertainty = 0.0
+        candidate.update_pbest()
+
+        return {
+            "accuracy": val_acc,
+            "params": params,
+            "flops": flops,
+            "latency_ms": candidate.latency_ms
+        }
+
+    def shutdown(self) -> None:
+        """Cleans up Ray cluster contexts or process pool contexts cleanly."""
+        if self.use_ray:
+            try:
+                import ray
+                if ray.is_initialized():
+                    logger.info("Shutting down Ray cluster context...")
+                    ray.shutdown()
+            except Exception as e:
+                logger.warning(f"Error during Ray cluster shutdown: {e}")

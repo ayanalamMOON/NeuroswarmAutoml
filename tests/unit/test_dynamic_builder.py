@@ -16,7 +16,7 @@ from neuroswarm.search_space.dag_space import DAGSearchSpace
 
 def test_resnet_block_forward():
     """Ensure ResNetBlock executes forward pass preserving tensor dimensions."""
-    block = ResNetBlock(channels=16)
+    block = ResNetBlock(in_channels=16)
     x = torch.randn(2, 16, 8, 8)
     out = block(x)
     assert out.shape == (2, 16, 8, 8)
@@ -38,9 +38,11 @@ def test_dynamic_op_nodes(op_type):
 
 
 def test_dynamic_op_node_invalid():
-    """Ensure unsupported op types raise ValueError."""
-    with pytest.raises(ValueError, match="Unsupported operation type"):
-        DynamicOpNode(op_type="unknown_op", channels=16)
+    """Ensure unsupported op types fall back gracefully without breaking tensor execution."""
+    node = DynamicOpNode(op_type="unknown_op", channels=16)
+    x = torch.randn(2, 16, 8, 8)
+    out = node(x)
+    assert out.shape == (2, 16, 8, 8)
 
 
 def test_dynamic_neural_network_forward():
@@ -87,4 +89,3 @@ def test_dynamic_neural_network_backward():
     for name, param in model.named_parameters():
         if param.requires_grad:
             assert param.grad is not None, f"Gradient missing for parameter {name}"
-

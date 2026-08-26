@@ -1,9 +1,9 @@
 """
-Bi-Level Co-Evolutionary Optimization Engine with Hardware-Aware Latency Penalties.
+Bi-Level Co-Evolutionary Optimization Engine with Telemetry and Hardware-Aware Constraints.
 
 Synchronizes Upper-Level Topology Genetic Algorithm (GA) and Lower-Level Continuous
 Particle Swarm Optimization / Differential Evolution (PSO-DE) with Gaussian Process surrogates,
-UCB acquisition selection, and hardware latency constraints.
+UCB acquisition selection, hardware latency constraints, and real-time telemetry streaming.
 """
 
 import logging
@@ -16,13 +16,19 @@ from neuroswarm.optimizers.pso_de_continuous import ContinuousPSODE
 from neuroswarm.surrogates.base_surrogate import BaseSurrogateModel
 from neuroswarm.surrogates.gp_estimator import GaussianProcessSurrogate
 
+try:
+    from neuroswarm.utils.telemetry import SearchTelemetryManager
+    HAS_TELEMETRY = True
+except ImportError:
+    HAS_TELEMETRY = False
+
 logger = logging.getLogger("neuroswarm.bilevel")
 
 
 class BiLevelCoEvolutionEngine:
     """
     Coordinating runtime orchestrating bi-level structural (GA) and hyperparameter (PSO-DE) evolution
-    with surrogate UCB acquisition and hardware-aware penalty constraints.
+    with surrogate UCB acquisition, hardware-aware penalty constraints, and real-time telemetry logging.
     """
 
     def __init__(
@@ -31,6 +37,7 @@ class BiLevelCoEvolutionEngine:
         ga_optimizer: Optional[TopologyGAOptimizer] = None,
         pso_optimizer: Optional[ContinuousPSODE] = None,
         surrogate: Optional[BaseSurrogateModel] = None,
+        telemetry: Optional[Any] = None,
         target_latency_ms: float = 0.0,
         latency_alpha: float = 0.05,
         target_flops: int = 0,
@@ -40,6 +47,7 @@ class BiLevelCoEvolutionEngine:
         self.ga_opt = ga_optimizer or TopologyGAOptimizer(population_size=population_size)
         self.pso_opt = pso_optimizer or ContinuousPSODE(population_size=population_size)
         self.surrogate = surrogate or GaussianProcessSurrogate()
+        self.telemetry = telemetry
 
         # Hardware-Aware Penalty Constraints
         self.target_latency_ms = target_latency_ms
@@ -102,6 +110,7 @@ class BiLevelCoEvolutionEngine:
         2. Evolve discrete DAG topologies via GA.
         3. Filter candidates through Gaussian Process surrogate UCB selection.
         4. Train selected candidates for short epochs with hardware-aware penalties.
+        5. Stream VRAM and generation progress to telemetry manager.
         """
         logger.info(f"\n--- Bi-Level Generation [{current_gen}/{max_gens}] (Hardware-Aware: {self.use_hardware_aware}) ---")
 
@@ -179,11 +188,14 @@ class BiLevelCoEvolutionEngine:
 
         # Track global best candidate based on effective fitness
         current_best = max(population, key=lambda c: c.effective_fitness(use_constrained=self.use_hardware_aware))
+        is_new_discovery = False
+
         if (
             self.global_best_candidate is None
             or current_best.effective_fitness(self.use_hardware_aware) > self.global_best_candidate.effective_fitness(self.use_hardware_aware)
         ):
             self.global_best_candidate = current_best.clone()
+            is_new_discovery = True
 
         # Log Metrics
         best_cand = self.global_best_candidate
@@ -198,6 +210,20 @@ class BiLevelCoEvolutionEngine:
             "best_candidate_id": best_cand.candidate_id if best_cand else "N/A"
         }
         self.history.append(gen_metrics)
+
+        # Stream Generation Metrics & Webhook Alerts to Telemetry Manager
+        if self.telemetry:
+            try:
+                self.telemetry.log_generation(gen_metrics)
+                if is_new_discovery and best_cand:
+                    self.telemetry.notify_pareto_discovery(
+                        candidate_id=best_cand.candidate_id,
+                        accuracy=best_cand.fitness,
+                        latency_ms=best_cand.latency_ms,
+                        params=best_cand.param_count
+                    )
+            except Exception as e:
+                logger.warning(f"Telemetry logging encountered an error: {e}")
 
         logger.info(
             f"Gen [{current_gen:02d}/{max_gens:02d}] Global Best ID: {gen_metrics['best_candidate_id']} | "

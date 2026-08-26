@@ -1,8 +1,9 @@
 """
-NeuroSwarm-AutoML Main Orchestrator with Scale-Up Search Space & CIFAR-100 Support.
+NeuroSwarm-AutoML Main Orchestrator with Dynamic Search Space & Telemetry.
 
 CLI entrypoint executing bi-level co-evolutionary Neural Architecture Search (NAS)
-with Gaussian Process surrogates, Pareto front extraction, and ONNX/TorchScript model exporting.
+with Gaussian Process surrogates, live telemetry streaming, Pareto front extraction,
+and ONNX/TorchScript model exporting.
 """
 
 from __future__ import annotations
@@ -41,6 +42,8 @@ from neuroswarm.search_space.dynamic_builder import DynamicNeuralNetwork
 from neuroswarm.surrogates.gp_estimator import GaussianProcessSurrogate
 from neuroswarm.utils.export import ModelExporter
 from neuroswarm.utils.pareto import get_pareto_front, fast_non_dominated_sort
+from neuroswarm.utils.reporter import ExperimentReporter
+from neuroswarm.utils.telemetry import SearchTelemetryManager
 from neuroswarm.utils.visualization import (
     plot_convergence_curve,
     plot_pareto_front,
@@ -153,6 +156,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num_workers", type=int, default=2, help="Parallel process worker count")
     parser.add_argument("--use_ray", action="store_true", help="Enable distributed Ray cluster execution")
     parser.add_argument("--gpus_per_worker", type=float, default=1.0, help="GPUs allocated per Ray worker")
+    parser.add_argument("--target_latency_ms", type=float, default=0.0, help="Target hardware latency in ms for penalty constraint")
+    parser.add_argument("--latency_alpha", type=float, default=0.05, help="Latency penalty coefficient")
+    parser.add_argument("--webhook_url", type=str, default=None, help="Discord or Slack HTTP webhook URL for live notifications")
+    parser.add_argument("--webhook_type", type=str, default="discord", choices=["discord", "slack"], help="Webhook notification formatting type")
     parser.add_argument("--output_dir", type=str, default="./outputs_run", help="Output directory for logs and exports")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     return parser.parse_args()
@@ -164,6 +171,14 @@ def main():
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Initialize Telemetry Manager
+    telemetry_dir = output_dir / "telemetry"
+    telemetry = SearchTelemetryManager(
+        log_dir=str(telemetry_dir),
+        webhook_url=args.webhook_url,
+        webhook_type=args.webhook_type
+    )
 
     # CUDA Hardware Detection & Optimization
     has_cuda = torch.cuda.is_available()
@@ -179,6 +194,7 @@ def main():
     print(f"Population: {args.population} | Generations: {args.generations}")
     print(f"Dataset: {args.dataset.upper()} | Target Device: {target_device.upper()} | AMP: {use_amp}")
     print(f"DAG Search Depth: Nodes [{args.min_nodes} -> {args.max_nodes}] | Base Channels: {args.base_channels}")
+    print(f"Telemetry Active: True | Webhook Configured: {bool(args.webhook_url)}")
     if has_cuda:
         gpu_name = torch.cuda.get_device_name(0)
         vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024 ** 3)
@@ -213,7 +229,7 @@ def main():
         cand = Candidate(graph=dag, hyperparams=hparams)
         population.append(cand)
 
-    # Initialize Bi-Level Co-Evolutionary Engine
+    # Initialize Bi-Level Co-Evolutionary Engine with Telemetry
     ga_opt = TopologyGAOptimizer(population_size=args.population)
     pso_opt = ContinuousPSODE(population_size=args.population)
     surrogate = GaussianProcessSurrogate()
@@ -221,7 +237,10 @@ def main():
         population_size=args.population,
         ga_optimizer=ga_opt,
         pso_optimizer=pso_opt,
-        surrogate=surrogate
+        surrogate=surrogate,
+        telemetry=telemetry,
+        target_latency_ms=args.target_latency_ms,
+        latency_alpha=args.latency_alpha
     )
 
     # Phase 1: Warm-Start Surrogate Evaluation
@@ -348,6 +367,13 @@ def main():
         filename=f"winner_{winning_cand.candidate_id}.pt"
     )
 
+    # Phase 6: Report Generation & Cleanup
+    reporter = ExperimentReporter(output_dir=str(output_dir))
+    report_file = reporter.generate_report()
+
+    runner.shutdown()
+    telemetry.close()
+
     print("=" * 70)
     print("[SUCCESS] AutoML Search & Export Completed Successfully!")
     print(f"Winning Candidate ID: {winning_cand.candidate_id}")
@@ -358,7 +384,7 @@ def main():
         print(f"ONNX Model Exported: {onnx_path}")
     if ts_path:
         print(f"TorchScript Model Exported: {ts_path}")
-    print(f"Artifacts saved to: {output_dir.resolve()}")
+    print(f"Report File:          {report_file}")
     print("=" * 70)
 
 

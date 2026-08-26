@@ -147,6 +147,17 @@ def main():
         input("\nPress Enter to return to the main menu...")
         os.system("cls" if os.name == "nt" else "clear")
 
+def launch_web_server():
+    print("\n--- 🚀 Launch Web Server & Real-Time Dashboard ---")
+    port = input("Server Port [default: 8000]: ").strip() or "8000"
+
+    cmd = [
+        sys.executable,
+        str(SRC_DIR / "neuroswarm" / "utils" / "dashboard.py"),
+        "--port", port
+    ]
+    print(f"\n[EXEC] Dashboard starting at http://localhost:{port}/ui ...\n")
+    subprocess.run(cmd)
 
 if __name__ == "__main__":
     main()

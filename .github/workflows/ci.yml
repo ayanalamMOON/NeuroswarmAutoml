@@ -1,0 +1,94 @@
+name: NeuroSwarm AutoML CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  code-quality:
+    name: Code Formatting & Static Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install Linting & Type Checking Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black mypy
+
+      - name: Check Code Formatting (Black)
+        run: |
+          black --check --diff src/ tests/
+
+      - name: Lint Syntax & Style (Flake8)
+        run: |
+          # Stop build if there are syntax errors or undefined names
+          flake8 src/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Complexity and line length checks
+          flake8 src/ --count --max-complexity=12 --max-line-length=120 --statistics
+
+      - name: Static Type Checking (Mypy)
+        run: |
+          mypy src/neuroswarm --ignore-missing-imports || true
+
+  unit-and-integration-tests:
+    name: PyTest Suite & Synthetic Pipeline Dry-Run
+    runs-on: ubuntu-latest
+    needs: code-quality
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install CPU PyTorch & Framework Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Use CPU-only PyTorch binaries to optimize runner download time
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy scikit-learn networkx matplotlib tqdm fastapi uvicorn gradio pytest pytest-cov
+          pip install -e . || true
+
+      - name: Run PyTest Test Suite
+        env:
+          PYTHONPATH: src
+        run: |
+          pytest tests/ --doctest-modules --junitxml=junit/test-results.xml --cov=src/neuroswarm --cov-report=xml
+
+      - name: Execute Synthetic AutoML Search Dry-Run
+        env:
+          PYTHONPATH: src
+        run: |
+          python src/neuroswarm/main.py \
+            --dataset synthetic \
+            --generations 1 \
+            --population 2 \
+            --short_epochs 1 \
+            --final_epochs 1 \
+            --device cpu \
+            --output_dir ./outputs_ci_dryrun
+
+      - name: Upload Test Coverage Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pytest-coverage-report
+          path: coverage.xml
+          retention-days: 7
