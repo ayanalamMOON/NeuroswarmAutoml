@@ -28,9 +28,7 @@ def test_graph_embedder_dimension():
     )
 
     feat = embedder.extract_features(cand)
-    assert feat.shape == (
-        embedder.embedding_dim,
-    ), f"Expected dim {embedder.embedding_dim}, got {feat.shape}"
+    assert feat.shape == (embedder.embedding_dim,), f"Expected dim {embedder.embedding_dim}, got {feat.shape}"
     assert not np.any(np.isnan(feat)), "Feature vector contains NaNs"
 
 

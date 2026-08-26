@@ -66,12 +66,8 @@ def test_pso_de_enforces_bounds(sample_population):
     for gen in range(1, 20):
         sample_population = pso.step(sample_population, current_gen=gen, max_gens=20)
         for c in sample_population:
-            assert np.all(
-                c.hyperparams >= bounds[:, 0] - 1e-7
-            ), f"Lower bound violated: {c.hyperparams}"
-            assert np.all(
-                c.hyperparams <= bounds[:, 1] + 1e-7
-            ), f"Upper bound violated: {c.hyperparams}"
+            assert np.all(c.hyperparams >= bounds[:, 0] - 1e-7), f"Lower bound violated: {c.hyperparams}"
+            assert np.all(c.hyperparams <= bounds[:, 1] + 1e-7), f"Upper bound violated: {c.hyperparams}"
 
 
 def test_pso_de_stagnation_triggers_de():
