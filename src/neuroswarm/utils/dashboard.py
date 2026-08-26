@@ -14,8 +14,7 @@ import json
 import logging
 import time
 from collections import deque
-from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 import matplotlib
@@ -176,9 +175,7 @@ def fetch_live_dashboard_data():
         linewidth=2.5,
         label="Global Best Acc",
     )
-    ax1.set_title(
-        "Search Convergence (Accuracy)", color="#F9FAFB", fontsize=10, fontweight="bold"
-    )
+    ax1.set_title("Search Convergence (Accuracy)", color="#F9FAFB", fontsize=10, fontweight="bold")
     ax1.set_xlabel("Generation", color="#9CA3AF", fontsize=8)
     ax1.tick_params(colors="#9CA3AF", labelsize=8)
     ax1.grid(True, linestyle="--", alpha=0.3)
@@ -231,13 +228,9 @@ def fetch_live_dashboard_data():
 
 def create_gradio_dashboard() -> gr.Blocks:
     """Builds the Gradio Dashboard layout with 1.0s auto-refresh Timer."""
-    with gr.Blocks(
-        theme=gr.themes.Soft(primary_hue="blue", neutral_hue="slate")
-    ) as demo:
+    with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", neutral_hue="slate")) as demo:
         gr.Markdown("# 🛸 NeuroSwarm-AutoML Live Streaming Dashboard")
-        gr.Markdown(
-            "Real-time GPU VRAM ticker, bi-level convergence graphs, and active Pareto DAG topology viewer."
-        )
+        gr.Markdown("Real-time GPU VRAM ticker, bi-level convergence graphs, and active Pareto DAG topology viewer.")
 
         # Auto-refresh timer ticking every 1.0 second
         timer = gr.Timer(1.0)
@@ -274,9 +267,7 @@ gradio_app = create_gradio_dashboard()
 app = gr.mount_gradio_app(app, gradio_app, path="/ui")
 
 
-def launch_dashboard(
-    telemetry_mgr: Optional[SearchTelemetryManager] = None, port: int = 8000
-):
+def launch_dashboard(telemetry_mgr: Optional[SearchTelemetryManager] = None, port: int = 8000):
     """Starts the FastAPI dashboard server."""
     if telemetry_mgr:
         set_global_telemetry(telemetry_mgr)
@@ -288,15 +279,11 @@ def launch_dashboard(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="NeuroSwarm Live Web Dashboard")
-    parser.add_argument(
-        "--port", type=int, default=8000, help="Port to host the dashboard"
-    )
+    parser.add_argument("--port", type=int, default=8000, help="Port to host the dashboard")
     args = parser.parse_args()
 
     dummy_telemetry = SearchTelemetryManager(log_dir="./runs/demo_dashboard")
-    dummy_telemetry.log_generation(
-        {"generation": 1, "best_fitness": 0.421, "mean_fitness": 0.310}
-    )
+    dummy_telemetry.log_generation({"generation": 1, "best_fitness": 0.421, "mean_fitness": 0.310})
     set_global_telemetry(dummy_telemetry)
 
     launch_dashboard(port=args.port)

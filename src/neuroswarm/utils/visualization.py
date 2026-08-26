@@ -7,7 +7,6 @@ and NetworkX DAG architecture rendering utilities for NAS search analysis.
 
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Union
-import numpy as np
 import networkx as nx
 
 from neuroswarm.core.candidate import Candidate
@@ -42,9 +41,7 @@ def plot_convergence_curve(
         show: Whether to display the plot interactively.
     """
     if not HAS_PLOTTING:
-        print(
-            "[Visualization] matplotlib/seaborn not available. Skipping convergence plot."
-        )
+        print("[Visualization] matplotlib/seaborn not available. Skipping convergence plot.")
         return
 
     if not history:
@@ -127,9 +124,7 @@ def plot_pareto_front(
     else:
         param_counts = candidates_or_params
         if accuracies is None:
-            raise ValueError(
-                "accuracies must be provided when passing parameter count lists."
-            )
+            raise ValueError("accuracies must be provided when passing parameter count lists.")
         pareto_params, pareto_accs = [], []
 
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -254,9 +249,7 @@ def plot_dag_architecture(
         width=1.8,
     )
 
-    ax.set_title(
-        "Neural Architecture Dynamic DAG Structure", fontsize=14, fontweight="bold"
-    )
+    ax.set_title("Neural Architecture Dynamic DAG Structure", fontsize=14, fontweight="bold")
     ax.axis("off")
 
     plt.tight_layout()

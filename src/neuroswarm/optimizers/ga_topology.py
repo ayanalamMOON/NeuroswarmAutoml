@@ -6,12 +6,10 @@ single-point matrix/subgraph crossovers, edge toggling, node insertion/deletion,
 node-type mutations, and hardware-aware fitness evaluation.
 """
 
-import copy
 import logging
 import random
 from typing import List, Tuple, Optional
 import networkx as nx
-import numpy as np
 
 from neuroswarm.optimizers.base_optimizer import BaseOptimizer
 from neuroswarm.core.candidate import Candidate
@@ -67,9 +65,7 @@ class TopologyGAOptimizer(BaseOptimizer):
             return []
 
         if len(population) < 2:
-            logger.warning(
-                "Population too small for crossover. Returning cloned population."
-            )
+            logger.warning("Population too small for crossover. Returning cloned population.")
             return [c.clone() for c in population]
 
         # Sort population by effective fitness (raw or hardware-constrained)
@@ -87,17 +83,11 @@ class TopologyGAOptimizer(BaseOptimizer):
 
         # Generate offspring for remaining slots
         while len(next_population) < len(population):
-            p1 = self._tournament_select(
-                population, k=self.tournament_size, use_constrained=use_constrained
-            )
-            p2 = self._tournament_select(
-                population, k=self.tournament_size, use_constrained=use_constrained
-            )
+            p1 = self._tournament_select(population, k=self.tournament_size, use_constrained=use_constrained)
+            p2 = self._tournament_select(population, k=self.tournament_size, use_constrained=use_constrained)
 
             if random.random() < self.crossover_prob:
-                child_graph1, child_graph2 = self._subgraph_crossover(
-                    p1.graph, p2.graph
-                )
+                child_graph1, child_graph2 = self._subgraph_crossover(p1.graph, p2.graph)
             else:
                 child_graph1, child_graph2 = p1.graph.copy(), p2.graph.copy()
 
@@ -118,9 +108,7 @@ class TopologyGAOptimizer(BaseOptimizer):
 
         return next_population[: len(population)]
 
-    def _tournament_select(
-        self, population: List[Candidate], k: int = 3, use_constrained: bool = False
-    ) -> Candidate:
+    def _tournament_select(self, population: List[Candidate], k: int = 3, use_constrained: bool = False) -> Candidate:
         """Tournament selection operator safely handling small population sizes."""
         if not population:
             raise ValueError("Population is empty during tournament selection.")
@@ -129,13 +117,9 @@ class TopologyGAOptimizer(BaseOptimizer):
         actual_k = max(1, min(k, len(population)))
         selected = random.sample(population, actual_k)
 
-        return max(
-            selected, key=lambda c: c.effective_fitness(use_constrained=use_constrained)
-        )
+        return max(selected, key=lambda c: c.effective_fitness(use_constrained=use_constrained))
 
-    def _subgraph_crossover(
-        self, g1: nx.DiGraph, g2: nx.DiGraph
-    ) -> Tuple[nx.DiGraph, nx.DiGraph]:
+    def _subgraph_crossover(self, g1: nx.DiGraph, g2: nx.DiGraph) -> Tuple[nx.DiGraph, nx.DiGraph]:
         """Swaps topological subgraph layers between parents while ensuring DAG validity."""
         c1, c2 = g1.copy(), g2.copy()
 

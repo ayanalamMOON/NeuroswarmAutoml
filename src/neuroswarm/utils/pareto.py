@@ -5,8 +5,7 @@ Provides non-dominated sorting, crowding distance calculations, and Pareto front
 extraction for balancing validation accuracy against hardware efficiency metrics (FLOPs / Parameters).
 """
 
-from typing import List, Tuple
-import numpy as np
+from typing import List
 from neuroswarm.core.candidate import Candidate
 
 
@@ -29,12 +28,8 @@ def dominates(cand_a: Candidate, cand_b: Candidate) -> bool:
     flops_strictly_better = cand_a.flops < cand_b.flops
     params_strictly_better = cand_a.param_count < cand_b.param_count
 
-    at_least_as_good = (
-        acc_better_or_equal and flops_better_or_equal and params_better_or_equal
-    )
-    strictly_better = (
-        acc_strictly_better or flops_strictly_better or params_strictly_better
-    )
+    at_least_as_good = acc_better_or_equal and flops_better_or_equal and params_better_or_equal
+    strictly_better = acc_strictly_better or flops_strictly_better or params_strictly_better
 
     return at_least_as_good and strictly_better
 
@@ -112,9 +107,7 @@ def calculate_crowding_distance(front: List[Candidate]) -> List[Candidate]:
             if distances[sorted_front[i].candidate_id] != float("inf"):
                 prev_val = getattr(sorted_front[i - 1], attr)
                 next_val = getattr(sorted_front[i + 1], attr)
-                distances[sorted_front[i].candidate_id] += abs(
-                    next_val - prev_val
-                ) / abs(val_range)
+                distances[sorted_front[i].candidate_id] += abs(next_val - prev_val) / abs(val_range)
 
     return front
 

@@ -19,7 +19,6 @@ class BaseSurrogateModel(ABC):
     @abstractmethod
     def is_fitted(self) -> bool:
         """Returns True if the surrogate has been trained on ground-truth evaluation data."""
-        pass
 
     @abstractmethod
     def fit(self, candidates: List[Candidate]) -> None:
@@ -29,7 +28,6 @@ class BaseSurrogateModel(ABC):
         Args:
             candidates: List of Candidate objects containing evaluated fitness scores.
         """
-        pass
 
     @abstractmethod
     def predict(self, candidate: Candidate) -> Tuple[float, float]:
@@ -42,11 +40,8 @@ class BaseSurrogateModel(ABC):
         Returns:
             Tuple[float, float]: (predicted_mean, uncertainty_std)
         """
-        pass
 
-    def predict_batch(
-        self, candidates: List[Candidate]
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def predict_batch(self, candidates: List[Candidate]) -> Tuple[np.ndarray, np.ndarray]:
         """
         Predicts performance mean and variance across a batch of candidates.
 

@@ -13,7 +13,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Dict, Any, Tuple, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -125,12 +125,10 @@ class TensorRTExporter:
             # Map dynamic batch (-1) or dynamic dims to concrete ranges
             min_shape = tuple(1 if dim <= 0 else dim for dim in shape)
             opt_shape = tuple(
-                32 if idx == 0 and dim <= 0 else (1 if dim <= 0 else dim)
-                for idx, dim in enumerate(shape)
+                32 if idx == 0 and dim <= 0 else (1 if dim <= 0 else dim) for idx, dim in enumerate(shape)
             )
             max_shape = tuple(
-                128 if idx == 0 and dim <= 0 else (1 if dim <= 0 else dim)
-                for idx, dim in enumerate(shape)
+                128 if idx == 0 and dim <= 0 else (1 if dim <= 0 else dim) for idx, dim in enumerate(shape)
             )
 
             profile.set_shape(input_tensor.name, min_shape, opt_shape, max_shape)
@@ -162,16 +160,12 @@ class TensorRTExporter:
         logger.info(f"TensorRT Engine build successful in {elapsed:.2f}s!")
         return True
 
-    def export_via_onnxruntime_ep(
-        self, onnx_path: str, engine_path: str, use_fp16: bool = True
-    ) -> bool:
+    def export_via_onnxruntime_ep(self, onnx_path: str, engine_path: str, use_fp16: bool = True) -> bool:
         """Fallback engine compilation via ONNX Runtime TensorRT Execution Provider."""
         if not HAS_ORT:
             return False
 
-        logger.info(
-            "Attempting TensorRT engine compilation via ONNX Runtime TRT Provider..."
-        )
+        logger.info("Attempting TensorRT engine compilation via ONNX Runtime TRT Provider...")
         try:
             available_providers = ort.get_available_providers()
             trt_ep_name = None
@@ -181,9 +175,7 @@ class TensorRTExporter:
                     break
 
             if not trt_ep_name:
-                logger.warning(
-                    "TensorRTExecutionProvider not registered in available ORT providers."
-                )
+                logger.warning("TensorRTExecutionProvider not registered in available ORT providers.")
                 return False
 
             trt_options = {
@@ -204,17 +196,13 @@ class TensorRTExporter:
             dummy_input = {inp_meta.name: np.zeros((1, 3, 32, 32), dtype=np.float32)}
             session.run(None, dummy_input)
 
-            logger.info(
-                f"ONNX Runtime TensorRT engine compiled and cached in {self.output_dir}"
-            )
+            logger.info(f"ONNX Runtime TensorRT engine compiled and cached in {self.output_dir}")
             return True
         except Exception as e:
             logger.warning(f"ONNX Runtime TensorRT compilation failed: {e}")
             return False
 
-    def export_via_trtexec_cli(
-        self, onnx_path: str, engine_path: str, use_fp16: bool = True
-    ) -> bool:
+    def export_via_trtexec_cli(self, onnx_path: str, engine_path: str, use_fp16: bool = True) -> bool:
         """Fallback build method using NVIDIA trtexec CLI binary."""
         cmd = [
             "trtexec",
@@ -251,37 +239,23 @@ class TensorRTExporter:
         out_name = filename or f"{inp_path.stem}.engine"
         out_path = self.output_dir / out_name
 
-        logger.info(
-            f"Starting TensorRT Compilation: {inp_path.name} -> {out_name} (FP16: {use_fp16})..."
-        )
+        logger.info(f"Starting TensorRT Compilation: {inp_path.name} -> {out_name} (FP16: {use_fp16})...")
 
         success = False
         if HAS_TRT:
             try:
-                success = self.export_via_python_api(
-                    str(inp_path), str(out_path), use_fp16=use_fp16
-                )
+                success = self.export_via_python_api(str(inp_path), str(out_path), use_fp16=use_fp16)
             except Exception as e:
-                logger.warning(
-                    f"Python TensorRT API build failed ({e}). Attempting fallbacks..."
-                )
+                logger.warning(f"Python TensorRT API build failed ({e}). Attempting fallbacks...")
 
         if not success:
-            success = self.export_via_onnxruntime_ep(
-                str(inp_path), str(out_path), use_fp16=use_fp16
-            )
+            success = self.export_via_onnxruntime_ep(str(inp_path), str(out_path), use_fp16=use_fp16)
 
         if not success:
-            success = self.export_via_trtexec_cli(
-                str(inp_path), str(out_path), use_fp16=use_fp16
-            )
+            success = self.export_via_trtexec_cli(str(inp_path), str(out_path), use_fp16=use_fp16)
 
         if success and (out_path.exists() or list(self.output_dir.glob("*.engine"))):
-            created_engine = (
-                out_path
-                if out_path.exists()
-                else list(self.output_dir.glob("*.engine"))[0]
-            )
+            created_engine = out_path if out_path.exists() else list(self.output_dir.glob("*.engine"))[0]
             logger.info(
                 f"TensorRT Engine Export Complete: {created_engine.name} ({get_file_size_mb(created_engine):.2f} MB)"
             )
@@ -292,12 +266,8 @@ class TensorRTExporter:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="NeuroSwarm-AutoML TensorRT Engine Exporter"
-    )
-    parser.add_argument(
-        "--onnx", type=str, required=True, help="Path to input .onnx model binary"
-    )
+    parser = argparse.ArgumentParser(description="NeuroSwarm-AutoML TensorRT Engine Exporter")
+    parser.add_argument("--onnx", type=str, required=True, help="Path to input .onnx model binary")
     parser.add_argument(
         "--fp16",
         action="store_true",

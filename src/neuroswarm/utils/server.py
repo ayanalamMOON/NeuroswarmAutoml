@@ -12,7 +12,7 @@ import logging
 import os
 from pathlib import Path
 import sys
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 import numpy as np
 from PIL import Image
@@ -94,15 +94,11 @@ class ModelInferenceEngine:
     ):
         self.model_path = Path(model_path)
         if not self.model_path.exists():
-            raise FileNotFoundError(
-                f"Model file not found at: {self.model_path.resolve()}"
-            )
+            raise FileNotFoundError(f"Model file not found at: {self.model_path.resolve()}")
 
         self.class_names = class_names or CIFAR10_CLASSES
         self.num_classes = len(self.class_names)
-        self.device_str = (
-            "cuda" if device.lower() == "cuda" and torch.cuda.is_available() else "cpu"
-        )
+        self.device_str = "cuda" if device.lower() == "cuda" and torch.cuda.is_available() else "cpu"
         self.model_format = self.model_path.suffix.lower()
 
         # Input Normalization Pipeline (32x32 ImageNet/CIFAR RGB standard)
@@ -110,9 +106,7 @@ class ModelInferenceEngine:
             [
                 transforms.Resize((32, 32)),
                 transforms.ToTensor(),
-                transforms.Normalize(
-                    (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
-                ),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
             ]
         )
 
@@ -121,12 +115,8 @@ class ModelInferenceEngine:
     def _load_model(self) -> None:
         """Loads target model into memory with active CUDA/CPU execution provider."""
         if self.model_format == ".pt":
-            logger.info(
-                f"Loading TorchScript model from {self.model_path} onto {self.device_str.upper()}..."
-            )
-            self.model = torch.jit.load(
-                str(self.model_path), map_location=self.device_str
-            )
+            logger.info(f"Loading TorchScript model from {self.model_path} onto {self.device_str.upper()}...")
+            self.model = torch.jit.load(str(self.model_path), map_location=self.device_str)
             self.model.eval()
             logger.info("TorchScript model loaded successfully.")
 
@@ -136,10 +126,7 @@ class ModelInferenceEngine:
             logger.info(f"Loading ONNX model from {self.model_path}...")
 
             available_providers = ort.get_available_providers()
-            if (
-                self.device_str == "cuda"
-                and "CUDAExecutionProvider" in available_providers
-            ):
+            if self.device_str == "cuda" and "CUDAExecutionProvider" in available_providers:
                 providers = [
                     (
                         "CUDAExecutionProvider",
@@ -155,18 +142,12 @@ class ModelInferenceEngine:
             else:
                 providers = ["CPUExecutionProvider"]
 
-            self.ort_session = ort.InferenceSession(
-                str(self.model_path), providers=providers
-            )
+            self.ort_session = ort.InferenceSession(str(self.model_path), providers=providers)
             active_provider = self.ort_session.get_providers()[0]
-            logger.info(
-                f"ONNX Session loaded successfully with provider: {active_provider}"
-            )
+            logger.info(f"ONNX Session loaded successfully with provider: {active_provider}")
 
         else:
-            raise ValueError(
-                f"Unsupported model extension '{self.model_format}'. Use .pt or .onnx."
-            )
+            raise ValueError(f"Unsupported model extension '{self.model_format}'. Use .pt or .onnx.")
 
     def preprocess_image(self, img: Image.Image) -> torch.Tensor:
         """Converts PIL Image to normalized BCHW PyTorch tensor."""
@@ -193,9 +174,7 @@ class ModelInferenceEngine:
 
         # Map predictions to class labels with dynamic index fallback
         prob_dict = {
-            (self.class_names[i] if i < len(self.class_names) else f"class_{i}"): float(
-                probs[i]
-            )
+            (self.class_names[i] if i < len(self.class_names) else f"class_{i}"): float(probs[i])
             for i in range(len(probs))
         }
         return dict(sorted(prob_dict.items(), key=lambda item: item[1], reverse=True))
@@ -229,9 +208,7 @@ app = FastAPI(
 async def health_check():
     """Health check endpoint confirming engine readiness and active hardware."""
     if engine is None:
-        raise HTTPException(
-            status_code=503, detail="Model inference engine is not initialized."
-        )
+        raise HTTPException(status_code=503, detail="Model inference engine is not initialized.")
     return HealthResponse(
         status="HEALTHY",
         model_path=str(engine.model_path),
@@ -268,9 +245,7 @@ async def predict_image(file: UploadFile = File(...)):
         )
     except Exception as e:
         logger.error(f"Inference error: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Image processing failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Image processing failed: {str(e)}")
 
 
 def gradio_predict(img: Image.Image) -> Dict[str, float]:
@@ -284,18 +259,14 @@ def create_gradio_ui() -> gr.Blocks:
     """Constructs the Gradio interactive web UI layout."""
     with gr.Blocks(title="NeuroSwarm-AutoML Classifier") as demo:
         gr.Markdown("# 🛸 NeuroSwarm-AutoML Model Classifier")
-        gr.Markdown(
-            "Upload an image to evaluate top-k predictions from your deployed neural architecture."
-        )
+        gr.Markdown("Upload an image to evaluate top-k predictions from your deployed neural architecture.")
 
         with gr.Row():
             with gr.Column():
                 image_input = gr.Image(type="pil", label="Input Image (32x32 RGB)")
                 submit_btn = gr.Button("Classify Image", variant="primary")
             with gr.Column():
-                label_output = gr.Label(
-                    num_top_classes=5, label="Prediction Probabilities"
-                )
+                label_output = gr.Label(num_top_classes=5, label="Prediction Probabilities")
 
         submit_btn.click(fn=gradio_predict, inputs=image_input, outputs=label_output)
         image_input.change(fn=gradio_predict, inputs=image_input, outputs=label_output)
@@ -309,9 +280,7 @@ app = gr.mount_gradio_app(app, demo_ui, path="/ui")
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="NeuroSwarm-AutoML FastAPI + Gradio Server"
-    )
+    parser = argparse.ArgumentParser(description="NeuroSwarm-AutoML FastAPI + Gradio Server")
     parser.add_argument(
         "--model",
         type=str,
@@ -325,9 +294,7 @@ def parse_args():
         choices=["cuda", "cpu"],
         help="Inference hardware device",
     )
-    parser.add_argument(
-        "--host", type=str, default="0.0.0.0", help="Binding host address"
-    )
+    parser.add_argument("--host", type=str, default="0.0.0.0", help="Binding host address")
     parser.add_argument("--port", type=int, default=8000, help="Server port number")
     return parser.parse_args()
 

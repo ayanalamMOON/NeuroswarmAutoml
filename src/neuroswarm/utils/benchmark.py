@@ -8,7 +8,6 @@ across CUDA and CPU execution providers.
 import argparse
 import os
 from pathlib import Path
-import sys
 import time
 from typing import Dict, Any, List
 
@@ -22,9 +21,7 @@ try:
         torch_lib_path = os.path.join(os.path.dirname(torch.__file__), "lib")
         if os.path.exists(torch_lib_path):
             os.add_dll_directory(torch_lib_path)
-            os.environ["PATH"] = (
-                torch_lib_path + os.path.pathsep + os.environ.get("PATH", "")
-            )
+            os.environ["PATH"] = torch_lib_path + os.path.pathsep + os.environ.get("PATH", "")
 except ImportError:
     pass
 
@@ -32,7 +29,7 @@ try:
     import onnxruntime as ort
 except ImportError:
     raise ImportError(
-        "onnxruntime is required for benchmarking. Install via 'pip install onnxruntime-gpu' or 'pip install onnxruntime'."
+        "onnxruntime is required for benchmarking. Install via 'pip install onnxruntime-gpu' or 'pip install onnxruntime'."  # noqa: E501
     )
 
 
@@ -52,10 +49,7 @@ def benchmark_onnx_model(
 
     # Determine execution provider priorities
     available_providers = ort.get_available_providers()
-    if (
-        device.lower() in ("cuda", "gpu")
-        and "CUDAExecutionProvider" in available_providers
-    ):
+    if device.lower() in ("cuda", "gpu") and "CUDAExecutionProvider" in available_providers:
         providers = [
             (
                 "CUDAExecutionProvider",
@@ -161,18 +155,10 @@ def benchmark_onnx_model(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="ONNX Latency and Throughput Profiler")
-    parser.add_argument(
-        "--model", type=str, required=True, help="Path to exported .onnx model file"
-    )
-    parser.add_argument(
-        "--batch_size", type=int, default=1, help="Inference batch size"
-    )
-    parser.add_argument(
-        "--iterations", type=int, default=1000, help="Number of benchmark iterations"
-    )
-    parser.add_argument(
-        "--warmup", type=int, default=100, help="Warmup runs before timing"
-    )
+    parser.add_argument("--model", type=str, required=True, help="Path to exported .onnx model file")
+    parser.add_argument("--batch_size", type=int, default=1, help="Inference batch size")
+    parser.add_argument("--iterations", type=int, default=1000, help="Number of benchmark iterations")
+    parser.add_argument("--warmup", type=int, default=100, help="Warmup runs before timing")
     parser.add_argument(
         "--device",
         type=str,

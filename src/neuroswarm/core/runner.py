@@ -50,14 +50,8 @@ def calculate_model_stats(
         nonlocal flops
         batch_size, input_channels, input_h, input_w = input_tok[0].shape
         output_channels, output_h, output_w = output_tok.shape[1:]
-        kernel_ops = (
-            module.kernel_size[0]
-            * module.kernel_size[1]
-            * (input_channels / module.groups)
-        )
-        flops += int(
-            batch_size * output_channels * output_h * output_w * (2 * kernel_ops)
-        )
+        kernel_ops = module.kernel_size[0] * module.kernel_size[1] * (input_channels / module.groups)
+        flops += int(batch_size * output_channels * output_h * output_w * (2 * kernel_ops))
 
     def linear_flop_hook(module, input_tok, output_tok):
         nonlocal flops
@@ -73,11 +67,7 @@ def calculate_model_stats(
 
     model.eval()
     if device is None:
-        device = (
-            next(model.parameters()).device
-            if list(model.parameters())
-            else torch.device("cpu")
-        )
+        device = next(model.parameters()).device if list(model.parameters()) else torch.device("cpu")
 
     dummy = torch.randn(*input_size, device=device)
     with torch.no_grad():
@@ -142,15 +132,11 @@ def train_and_evaluate_candidate(
             num_classes=num_classes,
         ).to(device)
     except Exception as e:
-        logger.error(
-            f"Failed to instantiate architecture for Candidate {candidate.candidate_id}: {e}"
-        )
+        logger.error(f"Failed to instantiate architecture for Candidate {candidate.candidate_id}: {e}")
         return -1.0, 0, 0
 
     # Compute parameter count and FLOPs
-    param_count, flops = calculate_model_stats(
-        model, input_size=(1, in_channels, 32, 32), device=device
-    )
+    param_count, flops = calculate_model_stats(model, input_size=(1, in_channels, 32, 32), device=device)
 
     # DataLoaders setup
     train_loader = config.get("train_loader", None)
@@ -179,9 +165,7 @@ def train_and_evaluate_candidate(
 
     # Loss function & Optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = AdamW(
-        model.parameters(), lr=lr, betas=(beta1, 0.999), weight_decay=weight_decay
-    )
+    optimizer = AdamW(model.parameters(), lr=lr, betas=(beta1, 0.999), weight_decay=weight_decay)
 
     # AMP Scaler for GPU mixed precision
     device_type = "cuda" if is_cuda else "cpu"
@@ -192,9 +176,7 @@ def train_and_evaluate_candidate(
     T_mult = config.get("cosine_tmult", 2)
     eta_min = lr * 1e-3
 
-    scheduler = CosineAnnealingWarmRestarts(
-        optimizer, T_0=T_0, T_mult=T_mult, eta_min=eta_min
-    )
+    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=T_0, T_mult=T_mult, eta_min=eta_min)
 
     try:
         # Training Loop with AMP
@@ -253,14 +235,8 @@ if RAY_AVAILABLE:
         gpu_id: Optional[int] = None,
     ) -> Tuple[str, float, int, int]:
         """Ray remote task wrapper for evaluating candidates across distributed CUDA nodes."""
-        device_str = (
-            f"cuda:{gpu_id}"
-            if gpu_id is not None and torch.cuda.is_available()
-            else "cpu"
-        )
-        val_acc, params, flops = train_and_evaluate_candidate(
-            candidate, epochs, config, device_str
-        )
+        device_str = f"cuda:{gpu_id}" if gpu_id is not None and torch.cuda.is_available() else "cpu"
+        val_acc, params, flops = train_and_evaluate_candidate(candidate, epochs, config, device_str)
         return candidate.candidate_id, val_acc, params, flops
 
 
@@ -269,9 +245,7 @@ def _mp_worker_wrapper(
 ) -> Tuple[str, float, int, int]:
     """Multiprocessing process pool fallback wrapper with CUDA device placement."""
     candidate, epochs, config, device_str = args
-    val_acc, params, flops = train_and_evaluate_candidate(
-        candidate, epochs, config, device_str
-    )
+    val_acc, params, flops = train_and_evaluate_candidate(candidate, epochs, config, device_str)
     return candidate.candidate_id, val_acc, params, flops
 
 
@@ -296,18 +270,10 @@ class ParallelRunner:
             if not ray.is_initialized():
                 logger.info("Initializing Ray cluster context...")
                 ray.init(ignore_reinit_error=True)
-            logger.info(
-                f"ParallelRunner: Ray enabled with {self.num_workers} workers, {self.num_gpus} GPUs."
-            )
+            logger.info(f"ParallelRunner: Ray enabled with {self.num_workers} workers, {self.num_gpus} GPUs.")
         else:
-            gpu_info = (
-                f"({self.num_gpus} CUDA GPU(s) available)"
-                if self.num_gpus > 0
-                else "(CPU Mode)"
-            )
-            logger.info(
-                f"ParallelRunner: Multiprocessing enabled with {self.num_workers} workers {gpu_info}."
-            )
+            gpu_info = f"({self.num_gpus} CUDA GPU(s) available)" if self.num_gpus > 0 else "(CPU Mode)"
+            logger.info(f"ParallelRunner: Multiprocessing enabled with {self.num_workers} workers {gpu_info}.")
 
     def evaluate_candidates(
         self,
@@ -327,14 +293,8 @@ class ParallelRunner:
         if self.use_ray:
             futures = []
             for i, cand in enumerate(candidates):
-                gpu_id = (
-                    i % self.num_gpus
-                    if self.num_gpus > 0 and self.gpus_per_worker > 0
-                    else None
-                )
-                task = _ray_eval_worker.options(num_gpus=self.gpus_per_worker).remote(
-                    cand, epochs, config, gpu_id
-                )
+                gpu_id = i % self.num_gpus if self.num_gpus > 0 and self.gpus_per_worker > 0 else None
+                task = _ray_eval_worker.options(num_gpus=self.gpus_per_worker).remote(cand, epochs, config, gpu_id)
                 futures.append(task)
 
             results = ray.get(futures)
@@ -358,9 +318,7 @@ class ParallelRunner:
         else:
             for i, cand in enumerate(candidates):
                 device_str = "cuda:0" if self.num_gpus > 0 else "cpu"
-                cand_id, score, params, flops = _mp_worker_wrapper(
-                    (cand, epochs, config, device_str)
-                )
+                cand_id, score, params, flops = _mp_worker_wrapper((cand, epochs, config, device_str))
                 results_map[cand_id] = (score, params, flops)
 
         # Update Candidates in place
@@ -388,9 +346,7 @@ class ParallelRunner:
         if device_str is None:
             device_str = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-        val_acc, params, flops = train_and_evaluate_candidate(
-            candidate, epochs, config, device_str
-        )
+        val_acc, params, flops = train_and_evaluate_candidate(candidate, epochs, config, device_str)
         candidate.fitness = val_acc
         candidate.param_count = params
         candidate.flops = flops

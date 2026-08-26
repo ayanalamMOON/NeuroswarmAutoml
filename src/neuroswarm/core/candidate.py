@@ -6,7 +6,7 @@ hyperparameter particle vectors, execution metrics, and latency/FLOP-penalized f
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import uuid
 import numpy as np
 import networkx as nx
@@ -27,15 +27,11 @@ class Candidate:
 
     # Continuous Hyperparameters (PSO-DE Space)
     # Hyperparams vector convention: [log10(lr), momentum/beta1, weight_decay, batch_size_exp]
-    hyperparams: np.ndarray = field(
-        default_factory=lambda: np.zeros(4, dtype=np.float64)
-    )
+    hyperparams: np.ndarray = field(default_factory=lambda: np.zeros(4, dtype=np.float64))
     velocity: np.ndarray = field(default_factory=lambda: np.zeros(4, dtype=np.float64))
 
     # Personal Best Memory for PSO
-    pbest_hyperparams: np.ndarray = field(
-        default_factory=lambda: np.zeros(4, dtype=np.float64)
-    )
+    pbest_hyperparams: np.ndarray = field(default_factory=lambda: np.zeros(4, dtype=np.float64))
     pbest_score: float = float("-inf")
 
     # Fitness & Performance Metadata

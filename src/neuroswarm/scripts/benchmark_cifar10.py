@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from pathlib import Path
 import sys
 import time
@@ -104,9 +103,7 @@ def profile_baseline_models(num_classes: int = 10) -> Dict[str, Dict[str, Any]]:
 
     # 2. MobileNetV2 (Adapted for 32x32 CIFAR-10)
     mb2 = mobilenet_v2(weights=None)
-    mb2.features[0][0] = nn.Conv2d(
-        3, 32, kernel_size=3, stride=1, padding=1, bias=False
-    )
+    mb2.features[0][0] = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1, bias=False)
     mb2.classifier[1] = nn.Linear(mb2.classifier[1].in_features, num_classes)
     mb2.to(device)
 
@@ -145,14 +142,8 @@ def generate_benchmark_summary_table(
         params = f"{metrics.get('params', 0):,}"
         flops = f"{metrics.get('flops', 0):,}"
         latency = f"{metrics.get('latency_ms', 0.0):.2f}"
-        acc = (
-            f"{metrics.get('accuracy', 0.0) * 100:.2f}%"
-            if "accuracy" in metrics
-            else "N/A"
-        )
-        lines.append(
-            f"| **{name}** | {m_type} | {params} | {flops} | **{latency} ms** | **{acc}** |"
-        )
+        acc = f"{metrics.get('accuracy', 0.0) * 100:.2f}%" if "accuracy" in metrics else "N/A"
+        lines.append(f"| **{name}** | {m_type} | {params} | {flops} | **{latency} ms** | **{acc}** |")
 
     content = "\n".join(lines)
     out_file = Path(output_path)
@@ -162,9 +153,7 @@ def generate_benchmark_summary_table(
         f.write(content)
 
     print("\n" + content + "\n")
-    logger.info(
-        f"Benchmark summary report successfully written to: {out_file.resolve()}"
-    )
+    logger.info(f"Benchmark summary report successfully written to: {out_file.resolve()}")
 
 
 def main():
@@ -195,14 +184,10 @@ def main():
             cand_id = ts_path.stem.replace("winner_", "")
             try:
                 ts_model = torch.jit.load(str(ts_path)).to(device)
-                ts_params, ts_flops = calculate_model_stats(
-                    ts_model, (1, 3, 32, 32), device=device
-                )
+                ts_params, ts_flops = calculate_model_stats(ts_model, (1, 3, 32, 32), device=device)
                 ts_latency = measure_cuda_latency_ms(ts_model, (1, 3, 32, 32))
 
-                acc = pareto_acc_map.get(
-                    cand_id, 0.7871
-                )  # Fallback to winning run accuracy
+                acc = pareto_acc_map.get(cand_id, 0.7871)  # Fallback to winning run accuracy
 
                 baseline_stats[f"NeuroSwarm ({cand_id[:8]})"] = {
                     "params": ts_params,
@@ -220,9 +205,7 @@ def main():
     with open(output_dir / "baselines_profile.json", "w", encoding="utf-8") as f:
         json.dump(baseline_stats, f, indent=4)
 
-    generate_benchmark_summary_table(
-        baseline_stats, str(output_dir / "baseline_summary.md")
-    )
+    generate_benchmark_summary_table(baseline_stats, str(output_dir / "baseline_summary.md"))
 
 
 if __name__ == "__main__":

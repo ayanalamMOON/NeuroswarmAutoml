@@ -7,11 +7,10 @@ multi-parent feature aggregation, and advanced neural primitives (Depthwise-Sepa
 Squeeze-and-Excitation, and Inverted Residual MBConv blocks).
 """
 
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Optional
 import networkx as nx
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 # =====================================================================
 # Advanced Neural Primitives
@@ -21,9 +20,7 @@ import torch.nn.functional as F
 class DepthwiseSeparableConv(nn.Module):
     """3x3 or 5x5 Depthwise Separable Convolution with BatchNorm and ReLU."""
 
-    def __init__(
-        self, in_channels: int, out_channels: int, kernel_size: int = 3, stride: int = 1
-    ):
+    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3, stride: int = 1):
         super().__init__()
         padding = kernel_size // 2
         self.depthwise = nn.Conv2d(
@@ -131,9 +128,7 @@ class InvertedResidualBlock(nn.Module):
 class ResNetBlock(nn.Module):
     """Standard Residual Convolutional Block with optional shortcut alignment."""
 
-    def __init__(
-        self, in_channels: int, out_channels: Optional[int] = None, stride: int = 1
-    ):
+    def __init__(self, in_channels: int, out_channels: Optional[int] = None, stride: int = 1):
         super().__init__()
         out_channels = out_channels or in_channels
         self.conv1 = nn.Conv2d(
@@ -146,17 +141,13 @@ class ResNetBlock(nn.Module):
         )
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(
-            out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False
-        )
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(out_channels)
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_channels != out_channels:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(
-                    in_channels, out_channels, kernel_size=1, stride=stride, bias=False
-                ),
+                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(out_channels),
             )
 
@@ -269,9 +260,7 @@ class DynamicNeuralNetwork(nn.Module):
             # Channel alignment projection for multi-parent concatenation
             if len(in_edges) > 1:
                 concat_ch = base_channels * len(in_edges)
-                self.merge_convs[str(node)] = nn.Conv2d(
-                    concat_ch, base_channels, kernel_size=1, bias=False
-                )
+                self.merge_convs[str(node)] = nn.Conv2d(concat_ch, base_channels, kernel_size=1, bias=False)
 
             self.node_ops[str(node)] = DynamicOpNode(op_type, base_channels)
 

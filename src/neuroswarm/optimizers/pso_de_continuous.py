@@ -29,7 +29,7 @@ class ContinuousPSODE(BaseOptimizer):
         velocity_threshold: float = 1e-4,
     ):
         super().__init__(population_size)
-        # Bounds: [ [log10_lr_min, log10_lr_max], [beta1_min, beta1_max], [log10_wd_min, log10_wd_max], [batch_exp_min, batch_exp_max] ]
+        # Bounds: [ [log10_lr_min, log10_lr_max], [beta1_min, beta1_max], [log10_wd_min, log10_wd_max], [batch_exp_min, batch_exp_max] ]  # noqa: E501
         self.bounds = (
             bounds
             if bounds is not None
@@ -49,16 +49,12 @@ class ContinuousPSODE(BaseOptimizer):
         self.F = de_scaling_factor
         self.velocity_threshold = velocity_threshold
 
-    def step(
-        self, population: List[Candidate], current_gen: int, max_gens: int
-    ) -> List[Candidate]:
+    def step(self, population: List[Candidate], current_gen: int, max_gens: int) -> List[Candidate]:
         """Executes one iteration of PSO-DE continuous parameter velocity updating."""
         # Identify global best agent
         gbest_cand = max(
             population,
-            key=lambda c: (
-                c.pbest_score if c.pbest_score != float("-inf") else c.fitness
-            ),
+            key=lambda c: (c.pbest_score if c.pbest_score != float("-inf") else c.fitness),
         )
         gbest_pos = np.copy(gbest_cand.pbest_hyperparams)
 
@@ -67,9 +63,7 @@ class ContinuousPSODE(BaseOptimizer):
         num_candidates = len(population)
 
         for i, cand in enumerate(population):
-            r1, r2 = np.random.rand(self.bounds.shape[0]), np.random.rand(
-                self.bounds.shape[0]
-            )
+            r1, r2 = np.random.rand(self.bounds.shape[0]), np.random.rand(self.bounds.shape[0])
 
             # Standard Swarm Acceleration
             cognitive = self.c1 * r1 * (cand.pbest_hyperparams - cand.hyperparams)
@@ -77,15 +71,10 @@ class ContinuousPSODE(BaseOptimizer):
             new_velocity = w * cand.velocity + cognitive + social
 
             # Apply DE Mutation if velocity magnitude drops below threshold (Stagnation Breakout)
-            if (
-                np.linalg.norm(new_velocity) < self.velocity_threshold
-                and num_candidates >= 4
-            ):
+            if np.linalg.norm(new_velocity) < self.velocity_threshold and num_candidates >= 4:
                 idx_pool = [j for j in range(num_candidates) if j != i]
                 r_a, r_b = np.random.choice(idx_pool, size=2, replace=False)
-                de_mutation_vec = self.F * (
-                    population[r_a].hyperparams - population[r_b].hyperparams
-                )
+                de_mutation_vec = self.F * (population[r_a].hyperparams - population[r_b].hyperparams)
                 new_velocity = new_velocity + de_mutation_vec
 
             # Clamp Velocity

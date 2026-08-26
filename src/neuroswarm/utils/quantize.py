@@ -10,11 +10,8 @@ import argparse
 import logging
 import os
 from pathlib import Path
-import sys
-import time
-from typing import Dict, Any, Tuple, Optional, Union
+from typing import Tuple, Optional, Union
 
-import numpy as np
 import torch
 import torch.nn as nn
 
@@ -23,13 +20,10 @@ if os.name == "nt" and torch.cuda.is_available():
     torch_lib_path = os.path.join(os.path.dirname(torch.__file__), "lib")
     if os.path.exists(torch_lib_path):
         os.add_dll_directory(torch_lib_path)
-        os.environ["PATH"] = (
-            torch_lib_path + os.path.pathsep + os.environ.get("PATH", "")
-        )
+        os.environ["PATH"] = torch_lib_path + os.path.pathsep + os.environ.get("PATH", "")
 
 # Conditional ONNX Runtime imports
 try:
-    import onnxruntime as ort
     from onnxruntime.quantization import quantize_dynamic, QuantType
 
     HAS_ORT_QUANT = True
@@ -58,31 +52,23 @@ class ModelQuantizer:
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    def quantize_onnx_int8(
-        self, input_onnx_path: str, filename: Optional[str] = None
-    ) -> Optional[str]:
+    def quantize_onnx_int8(self, input_onnx_path: str, filename: Optional[str] = None) -> Optional[str]:
         """
         Applies dynamic INT8 weight quantization to an ONNX model.
         """
         if not HAS_ORT_QUANT:
-            logger.error(
-                "onnxruntime is required for ONNX quantization. Install via 'pip install onnxruntime'."
-            )
+            logger.error("onnxruntime is required for ONNX quantization. Install via 'pip install onnxruntime'.")
             return None
 
         inp_path = Path(input_onnx_path)
         if not inp_path.exists():
-            raise FileNotFoundError(
-                f"Source ONNX model not found: {inp_path.resolve()}"
-            )
+            raise FileNotFoundError(f"Source ONNX model not found: {inp_path.resolve()}")
 
         out_name = filename or f"{inp_path.stem}_int8.onnx"
         out_path = self.output_dir / out_name
 
         try:
-            logger.info(
-                f"Quantizing ONNX model to INT8: {inp_path.name} -> {out_name}..."
-            )
+            logger.info(f"Quantizing ONNX model to INT8: {inp_path.name} -> {out_name}...")
             quantize_dynamic(
                 model_input=str(inp_path),
                 model_output=str(out_path),
@@ -94,7 +80,7 @@ class ModelQuantizer:
             reduction = (1.0 - (quant_size / orig_size)) * 100.0
 
             logger.info(
-                f"INT8 ONNX Quantization complete: {orig_size:.2f} MB -> {quant_size:.2f} MB ({reduction:.1f}% reduction)"
+                f"INT8 ONNX Quantization complete: {orig_size:.2f} MB -> {quant_size:.2f} MB ({reduction:.1f}% reduction)"  # noqa: E501
             )
             return str(out_path)
         except Exception as e:
@@ -112,17 +98,13 @@ class ModelQuantizer:
         """
         inp_path = Path(input_pt_path)
         if not inp_path.exists():
-            raise FileNotFoundError(
-                f"Source TorchScript model not found: {inp_path.resolve()}"
-            )
+            raise FileNotFoundError(f"Source TorchScript model not found: {inp_path.resolve()}")
 
         out_name = filename or f"{inp_path.stem}_fp16.pt"
         out_path = self.output_dir / out_name
 
         try:
-            logger.info(
-                f"Converting TorchScript model to FP16: {inp_path.name} -> {out_name}..."
-            )
+            logger.info(f"Converting TorchScript model to FP16: {inp_path.name} -> {out_name}...")
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
             # Load baseline model
@@ -142,32 +124,26 @@ class ModelQuantizer:
             reduction = (1.0 - (quant_size / orig_size)) * 100.0
 
             logger.info(
-                f"FP16 TorchScript conversion complete: {orig_size:.2f} MB -> {quant_size:.2f} MB ({reduction:.1f}% reduction)"
+                f"FP16 TorchScript conversion complete: {orig_size:.2f} MB -> {quant_size:.2f} MB ({reduction:.1f}% reduction)"  # noqa: E501
             )
             return str(out_path)
         except Exception as e:
             logger.error(f"TorchScript FP16 conversion failed: {e}")
             return None
 
-    def quantize_torchscript_int8(
-        self, input_pt_path: str, filename: Optional[str] = None
-    ) -> Optional[str]:
+    def quantize_torchscript_int8(self, input_pt_path: str, filename: Optional[str] = None) -> Optional[str]:
         """
         Applies PyTorch dynamic INT8 quantization to Conv2d and Linear layers in TorchScript.
         """
         inp_path = Path(input_pt_path)
         if not inp_path.exists():
-            raise FileNotFoundError(
-                f"Source TorchScript model not found: {inp_path.resolve()}"
-            )
+            raise FileNotFoundError(f"Source TorchScript model not found: {inp_path.resolve()}")
 
         out_name = filename or f"{inp_path.stem}_int8.pt"
         out_path = self.output_dir / out_name
 
         try:
-            logger.info(
-                f"Quantizing TorchScript model to INT8: {inp_path.name} -> {out_name}..."
-            )
+            logger.info(f"Quantizing TorchScript model to INT8: {inp_path.name} -> {out_name}...")
             model = torch.jit.load(str(inp_path), map_location="cpu")
             model.eval()
 
@@ -184,7 +160,7 @@ class ModelQuantizer:
             reduction = (1.0 - (quant_size / orig_size)) * 100.0
 
             logger.info(
-                f"INT8 TorchScript dynamic quantization complete: {orig_size:.2f} MB -> {quant_size:.2f} MB ({reduction:.1f}% reduction)"
+                f"INT8 TorchScript dynamic quantization complete: {orig_size:.2f} MB -> {quant_size:.2f} MB ({reduction:.1f}% reduction)"  # noqa: E501
             )
             return str(out_path)
         except Exception as e:
@@ -212,9 +188,7 @@ def benchmark_compression_comparison(
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="NeuroSwarm-AutoML Model Quantization CLI"
-    )
+    parser = argparse.ArgumentParser(description="NeuroSwarm-AutoML Model Quantization CLI")
     parser.add_argument(
         "--model",
         type=str,

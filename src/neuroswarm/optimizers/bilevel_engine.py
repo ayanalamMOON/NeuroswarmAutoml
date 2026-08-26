@@ -7,7 +7,7 @@ UCB acquisition selection, hardware latency constraints, and real-time telemetry
 """
 
 import logging
-from typing import List, Dict, Any, Callable, Optional, Tuple
+from typing import List, Dict, Any, Callable, Optional
 import numpy as np
 
 from neuroswarm.core.candidate import Candidate
@@ -17,7 +17,7 @@ from neuroswarm.surrogates.base_surrogate import BaseSurrogateModel
 from neuroswarm.surrogates.gp_estimator import GaussianProcessSurrogate
 
 try:
-    from neuroswarm.utils.telemetry import SearchTelemetryManager
+    pass
 
     HAS_TELEMETRY = True
 except ImportError:
@@ -45,9 +45,7 @@ class BiLevelCoEvolutionEngine:
         flops_beta: float = 0.0,
     ):
         self.population_size = population_size
-        self.ga_opt = ga_optimizer or TopologyGAOptimizer(
-            population_size=population_size
-        )
+        self.ga_opt = ga_optimizer or TopologyGAOptimizer(population_size=population_size)
         self.pso_opt = pso_optimizer or ContinuousPSODE(population_size=population_size)
         self.surrogate = surrogate or GaussianProcessSurrogate()
         self.telemetry = telemetry
@@ -148,9 +146,7 @@ class BiLevelCoEvolutionEngine:
             )
         except TypeError:
             try:
-                population = self.ga_opt.step(
-                    population=population, use_constrained=self.use_hardware_aware
-                )
+                population = self.ga_opt.step(population=population, use_constrained=self.use_hardware_aware)
             except TypeError:
                 population = self.ga_opt.step(population, current_gen, max_gens)
 
@@ -171,15 +167,11 @@ class BiLevelCoEvolutionEngine:
 
             # Sort by effective fitness to select top candidates for ground-truth evaluation
             population.sort(
-                key=lambda c: c.effective_fitness(
-                    use_constrained=self.use_hardware_aware
-                ),
+                key=lambda c: c.effective_fitness(use_constrained=self.use_hardware_aware),
                 reverse=True,
             )
             eval_cutoff = max(2, int(self.population_size * 0.20))
-            candidates_to_eval = [
-                c for c in population[:eval_cutoff] if not c.is_ground_truth
-            ]
+            candidates_to_eval = [c for c in population[:eval_cutoff] if not c.is_ground_truth]
         else:
             # Warm-start phase: evaluate uninitialized candidates
             candidates_to_eval = [c for c in population if not c.is_ground_truth]
@@ -194,9 +186,7 @@ class BiLevelCoEvolutionEngine:
             if len(evaluated_samples) >= 5:
                 try:
                     self.surrogate.fit(evaluated_samples)
-                    logger.info(
-                        f"Surrogate GP refitted on {len(evaluated_samples)} ground truth samples."
-                    )
+                    logger.info(f"Surrogate GP refitted on {len(evaluated_samples)} ground truth samples.")
                 except Exception as e:
                     logger.warning(f"Surrogate GP fitting skipped ({e}).")
 
@@ -218,16 +208,10 @@ class BiLevelCoEvolutionEngine:
         gen_metrics = {
             "generation": current_gen,
             "best_fitness": best_cand.fitness if best_cand else 0.0,
-            "best_constrained_fitness": (
-                best_cand.constrained_fitness if best_cand else 0.0
-            ),
+            "best_constrained_fitness": (best_cand.constrained_fitness if best_cand else 0.0),
             "best_latency_ms": best_cand.latency_ms if best_cand else 0.0,
             "best_params": best_cand.param_count if best_cand else 0,
-            "mean_fitness": float(
-                np.mean(
-                    [c.effective_fitness(self.use_hardware_aware) for c in population]
-                )
-            ),
+            "mean_fitness": float(np.mean([c.effective_fitness(self.use_hardware_aware) for c in population])),
             "surrogate_fitted": getattr(self.surrogate, "is_fitted", False),
             "best_candidate_id": best_cand.candidate_id if best_cand else "N/A",
         }

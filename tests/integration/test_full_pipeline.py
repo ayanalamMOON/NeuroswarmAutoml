@@ -4,9 +4,7 @@ Integration tests for the complete NeuroSwarm-AutoML surrogate-assisted search l
 
 import os
 import tempfile
-import pytest
 import numpy as np
-import torch
 
 from neuroswarm.core.candidate import Candidate
 from neuroswarm.search_space.dag_space import DAGSearchSpace
@@ -15,11 +13,6 @@ from neuroswarm.optimizers.pso_de_continuous import ContinuousPSODE
 from neuroswarm.optimizers.bilevel_engine import BiLevelCoEvolutionEngine
 from neuroswarm.surrogates.gp_estimator import GaussianProcessSurrogate
 from neuroswarm.surrogates.graph_embedder import GraphEmbedder
-from neuroswarm.utils.visualization import (
-    plot_convergence_curve,
-    plot_pareto_front,
-    plot_dag_architecture,
-)
 from neuroswarm.utils.export import ModelExporter
 
 

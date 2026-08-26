@@ -17,7 +17,7 @@ from pathlib import Path
 import random
 import sys
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 
 # Add project root and src directory to sys.path for direct CLI execution
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -41,7 +41,7 @@ from neuroswarm.search_space.dag_space import DAGSearchSpace
 from neuroswarm.search_space.dynamic_builder import DynamicNeuralNetwork
 from neuroswarm.surrogates.gp_estimator import GaussianProcessSurrogate
 from neuroswarm.utils.export import ModelExporter
-from neuroswarm.utils.pareto import get_pareto_front, fast_non_dominated_sort
+from neuroswarm.utils.pareto import get_pareto_front
 from neuroswarm.utils.reporter import ExperimentReporter
 from neuroswarm.utils.telemetry import SearchTelemetryManager
 from neuroswarm.utils.visualization import (
@@ -106,12 +106,8 @@ def get_dataset_loaders(
                 ]
             )
 
-            train_set = dataset_cls(
-                root=data_path, train=True, download=True, transform=transform_train
-            )
-            val_set = dataset_cls(
-                root=data_path, train=False, download=True, transform=transform_test
-            )
+            train_set = dataset_cls(root=data_path, train=True, download=True, transform=transform_train)
+            val_set = dataset_cls(root=data_path, train=False, download=True, transform=transform_test)
 
             train_loader = DataLoader(
                 train_set,
@@ -136,9 +132,7 @@ def get_dataset_loaders(
                 "base_channels": base_channels,
             }
         except Exception as e:
-            logger.warning(
-                f"Failed to load {dataset_name} ({e}). Falling back to synthetic."
-            )
+            logger.warning(f"Failed to load {dataset_name} ({e}). Falling back to synthetic.")
 
     logger.info("Using Synthetic Data Config for fast benchmarking.")
     return {
@@ -152,15 +146,9 @@ def get_dataset_loaders(
 
 def parse_args() -> argparse.Namespace:
     """Parses command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="NeuroSwarm-AutoML CLI Search Orchestrator"
-    )
-    parser.add_argument(
-        "--generations", type=int, default=5, help="Total co-evolution generations"
-    )
-    parser.add_argument(
-        "--population", type=int, default=8, help="Population size per generation"
-    )
+    parser = argparse.ArgumentParser(description="NeuroSwarm-AutoML CLI Search Orchestrator")
+    parser.add_argument("--generations", type=int, default=5, help="Total co-evolution generations")
+    parser.add_argument("--population", type=int, default=8, help="Population size per generation")
     parser.add_argument(
         "--short_epochs",
         type=int,
@@ -182,21 +170,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--min_nodes", type=int, default=4, help="Minimum DAG nodes")
     parser.add_argument("--max_nodes", type=int, default=8, help="Maximum DAG nodes")
-    parser.add_argument(
-        "--base_channels", type=int, default=32, help="Base network width channels"
-    )
+    parser.add_argument("--base_channels", type=int, default=32, help="Base network width channels")
     parser.add_argument(
         "--device",
         type=str,
         default=None,
         help="Target device (e.g. cuda, cuda:0, cpu)",
     )
-    parser.add_argument(
-        "--no_amp", action="store_true", help="Disable Automatic Mixed Precision (AMP)"
-    )
-    parser.add_argument(
-        "--num_workers", type=int, default=2, help="Parallel process worker count"
-    )
+    parser.add_argument("--no_amp", action="store_true", help="Disable Automatic Mixed Precision (AMP)")
+    parser.add_argument("--num_workers", type=int, default=2, help="Parallel process worker count")
     parser.add_argument(
         "--use_ray",
         action="store_true",
@@ -214,9 +196,7 @@ def parse_args() -> argparse.Namespace:
         default=0.0,
         help="Target hardware latency in ms for penalty constraint",
     )
-    parser.add_argument(
-        "--latency_alpha", type=float, default=0.05, help="Latency penalty coefficient"
-    )
+    parser.add_argument("--latency_alpha", type=float, default=0.05, help="Latency penalty coefficient")
     parser.add_argument(
         "--webhook_url",
         type=str,
@@ -267,27 +247,19 @@ def main():
     print("=" * 70)
     print(">>> NeuroSwarm-AutoML Search Engine Initializing...")
     print(f"Population: {args.population} | Generations: {args.generations}")
-    print(
-        f"Dataset: {args.dataset.upper()} | Target Device: {target_device.upper()} | AMP: {use_amp}"
-    )
-    print(
-        f"DAG Search Depth: Nodes [{args.min_nodes} -> {args.max_nodes}] | Base Channels: {args.base_channels}"
-    )
+    print(f"Dataset: {args.dataset.upper()} | Target Device: {target_device.upper()} | AMP: {use_amp}")
+    print(f"DAG Search Depth: Nodes [{args.min_nodes} -> {args.max_nodes}] | Base Channels: {args.base_channels}")
     print(f"Telemetry Active: True | Webhook Configured: {bool(args.webhook_url)}")
     if has_cuda:
         gpu_name = torch.cuda.get_device_name(0)
         vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-        print(
-            f"CUDA Hardware: {gpu_name} ({vram_gb:.1f} GB VRAM) | Devices: {torch.cuda.device_count()}"
-        )
+        print(f"CUDA Hardware: {gpu_name} ({vram_gb:.1f} GB VRAM) | Devices: {torch.cuda.device_count()}")
         torch.backends.cudnn.benchmark = True
     print(f"Ray Distributed: {args.use_ray} | Seed: {args.seed}")
     print("=" * 70)
 
     # Load Dataset Configuration
-    dataset_config = get_dataset_loaders(
-        args.dataset, base_channels=args.base_channels, pin_memory=has_cuda
-    )
+    dataset_config = get_dataset_loaders(args.dataset, base_channels=args.base_channels, pin_memory=has_cuda)
     dataset_config["use_amp"] = use_amp
     dataset_config["device"] = target_device
 
@@ -331,13 +303,9 @@ def main():
 
     # Phase 1: Warm-Start Surrogate Evaluation
     warmstart_count = min(5, args.population)
-    logger.info(
-        f"\n[Phase 1] Warm-Starting Surrogate with {warmstart_count} candidates on {target_device.upper()}..."
-    )
+    logger.info(f"\n[Phase 1] Warm-Starting Surrogate with {warmstart_count} candidates on {target_device.upper()}...")
     warmstart_batch = population[:warmstart_count]
-    runner.evaluate_candidates(
-        warmstart_batch, epochs=args.short_epochs, config=dataset_config
-    )
+    runner.evaluate_candidates(warmstart_batch, epochs=args.short_epochs, config=dataset_config)
 
     surrogate.fit(warmstart_batch)
     logger.info(f"Surrogate fitted: {surrogate.is_fitted}")
@@ -350,9 +318,7 @@ def main():
         gen_start = time.time()
 
         def eval_wrapper(cand: Candidate, epochs: int, config: Dict[str, Any]):
-            val_acc, params, flops = train_and_evaluate_candidate(
-                cand, epochs, config, device_str=target_device
-            )
+            val_acc, params, flops = train_and_evaluate_candidate(cand, epochs, config, device_str=target_device)
             return val_acc, params, flops
 
         population = bilevel_engine.run_generation(
@@ -365,13 +331,9 @@ def main():
         )
 
         elapsed = time.time() - gen_start
-        best_acc = (
-            bilevel_engine.global_best_candidate.fitness
-            if bilevel_engine.global_best_candidate
-            else 0.0
-        )
+        best_acc = bilevel_engine.global_best_candidate.fitness if bilevel_engine.global_best_candidate else 0.0
         print(
-            f"  Gen [{gen:02d}/{args.generations:02d}] Best Acc: {best_acc:.4f} | Surrogate Fitted: {surrogate.is_fitted} | Elapsed: {elapsed:.2f}s"
+            f"  Gen [{gen:02d}/{args.generations:02d}] Best Acc: {best_acc:.4f} | Surrogate Fitted: {surrogate.is_fitted} | Elapsed: {elapsed:.2f}s"  # noqa: E501
         )
 
         # Periodically clean CUDA memory cache
@@ -400,7 +362,7 @@ def main():
         }
         pareto_report.append(info)
         print(
-            f"  Rank {idx+1}: ID={cand.candidate_id} | Acc={cand.fitness:.4f} | Params={cand.param_count:,} | FLOPs={cand.flops:,}"
+            f"  Rank {idx+1}: ID={cand.candidate_id} | Acc={cand.fitness:.4f} | Params={cand.param_count:,} | FLOPs={cand.flops:,}"  # noqa: E501
         )
 
     with open(output_dir / "pareto_report.json", "w") as f:

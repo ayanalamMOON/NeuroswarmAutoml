@@ -30,3 +30,8 @@ pythonpath = [".", "src"]
 filterwarnings = [
     "ignore::sklearn.exceptions.ConvergenceWarning",
 ]
+
+[tool.black]
+line-length = 120
+target-version = ['py310', 'py311']
+include = '\.pyi?$'

@@ -36,9 +36,7 @@ class GraphEmbedder:
         self.available_ops = available_ops or self.DEFAULT_OPS
         self.max_nodes = max_nodes
         self.spectral_k = spectral_k
-        self.op_to_idx: Dict[str, int] = {
-            op: i for i, op in enumerate(self.available_ops)
-        }
+        self.op_to_idx: Dict[str, int] = {op: i for i, op in enumerate(self.available_ops)}
 
     @property
     def embedding_dim(self) -> int:
@@ -93,9 +91,7 @@ class GraphEmbedder:
         if not candidates:
             return np.empty((0, self.embedding_dim), dtype=np.float64)
 
-        return np.array(
-            [self.extract_features(c) for c in candidates], dtype=np.float64
-        )
+        return np.array([self.extract_features(c) for c in candidates], dtype=np.float64)
 
     def _extract_topological_features(self, g: nx.DiGraph) -> np.ndarray:
         """Extracts structural invariants from the graph."""

@@ -1,0 +1,9 @@
+[flake8]
+max-line-length = 120
+max-complexity = 25
+extend-ignore = E203, W503
+per-file-ignores =
+    src/neuroswarm/__init__.py: E402, F401
+    src/neuroswarm/main.py: E402, F401
+    src/neuroswarm/scripts/benchmark_cifar10.py: E402, F401
+    src/neuroswarm/utils/dashboard.py: E402, F401
