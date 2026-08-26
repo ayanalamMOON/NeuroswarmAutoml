@@ -1,0 +1,1945 @@
+Expand and analyze and give me details on the first idea. We will work in that.
+
+Building an AutoML Architecture Search Engine using Evolutionary Algorithms (EA), Particle Swarm Optimization (PSO), and Modern Metaheuristics/Surrogates balances algorithmic rigor with high-value utility.
+
+Here is the complete system design, mathematical framework, and dynamic execution workflow for the project.
+
+1. System Architecture & Representation
+The engine splits the search problem into two linked spaces:
+
+Discrete Structural Space (S): Network topology (number of layers, layer types, skip-connection graph).
+
+Continuous Hyperparameter Space (H): Training dynamics (learning rate η, momentum β, weight decay λ, batch size).
+
+                 +----------------------------------------+
+                 |       Bi-Level Optimizer Loop          |
+                 +----------------------------------------+
+                                     |
+           +-------------------------+-------------------------+
+           |                                                   |
+           v                                                   v
++-----------------------+                           +-----------------------+
+|  GA Structural Search |                           | PSO Continuous Search |
+|  (Discrete Topology)  |                           |  (Hyperparameters)    |
++-----------------------+                           +-----------------------+
+           |                                                   |
+           +-------------------------+-------------------------+
+                                     |
+                                     v
+                        +-------------------------+
+                        | Dynamic Candidate Model |
+                        +-------------------------+
+                                     |
+            +------------------------+------------------------+
+            | Low-Epoch / Low-Data Evaluation                 |
+            v                                                 v
++-----------------------+                           +-----------------------+
+| Surrogate Model (ML)  | --(High Uncertainty/Top)-->| Actual PyTorch Engine |
+| (Estimates Fitness)   |                           | (Trains & Evaluates)  |
++-----------------------+                           +-----------------------+
+Chromosome & Particle Encoding
+A single candidate agent A
+i
+​
+  is represented as a composite tuple A
+i
+​
+ =(G
+i
+​
+ ,θ
+i
+​
+ ):
+
+Directed Acyclic Graph (DAG) Chromosome (G
+i
+​
+ ): Represented as a binary adjacency matrix M∈{0,1}
+N×N
+  alongside a node-type array T∈{1,…,K}
+N
+  (e.g., 1=Conv3x3, 2=DepthwiseConv, 3=ResidualBlock, 4=Identity).
+
+Hyperparameter Particle Vector (θ
+i
+​
+ ): Continuous position vector in R
+d
+ :
+
+θ
+i
+​
+ =[log
+10
+​
+ (η),β
+1
+​
+ ,β
+2
+​
+ ,log
+10
+​
+ (λ)]
+T
+
+2. Hybrid Optimization Mechanics
+Layer 1: Genetic Algorithm for Topology Search
+The discrete graph evolves via structural mutations and subgraph crossovers:
+
+Crossover (Single-Point Subgraph Swap): Swap sub-matrices of the adjacency matrix M between parents while ensuring the resulting graph remains a valid DAG via topological sorting.
+
+Mutation Operators:
+
+Node Insertion/Deletion: Add or remove a layer node.
+
+Edge Toggling: Flip M
+ij
+​
+  with probability p
+m
+​
+ .
+
+Type Mutation: Mutate continuous operations in node-type array T.
+
+Layer 2: Adaptive PSO-DE for Continuous Hyperparameters
+For a fixed topology G
+i
+​
+ , the continuous parameters θ
+i
+​
+  evolve via standard PSO velocity updates modified with a Differential Evolution (DE) mutation operator to prevent premature convergence.
+
+Mathematical Update Rules
+Standard PSO updates velocity V
+i
+​
+  and position θ
+i
+​
+ :
+
+V
+i
+t+1
+​
+ =w(t)V
+i
+t
+​
+ +c
+1
+​
+ r
+1
+​
+ (P
+best,i
+​
+ −θ
+i
+t
+​
+ )+c
+2
+​
+ r
+2
+​
+ (G
+best
+​
+ −θ
+i
+t
+​
+ )
+To enhance exploration, if the velocity magnitude falls below a threshold ∥V
+i
+t+1
+​
+ ∥<ϵ, replace the cognitive/social update with a DE/rand/1 mutation:
+
+V
+i,DE
+t+1
+​
+ =F⋅(θ
+r1
+t
+​
+ −θ
+r2
+t
+​
+ )
+θ
+i
+t+1
+​
+ =θ
+i
+t
+​
+ +V
+i
+t+1
+​
+
+Where:
+
+w(t)=w
+max
+​
+ −
+T
+max
+​
+
+t
+​
+ (w
+max
+​
+ −w
+min
+​
+ ) is the dynamically decaying inertia weight.
+
+r
+1
+​
+ ,r
+2
+​
+ ∼U(0,1) are uniform random vectors.
+
+F∈[0.5,1.0] is the DE differential scaling factor.
+
+r1
+
+=r2
+
+=i are randomly selected candidate indices.
+
+3. The Modern Twist: Surrogate-Assisted Fitness Evaluation
+Evaluating a single neural network architecture by training it to convergence takes minutes to hours. To optimize hundreds of candidates efficiently, use a Gaussian Process (GP) Surrogate Estimator or an XGBoost Regressor trained on historical search trajectory data.
+
+Surrogate-Assisted Workflow
+Feature Extraction: Convert (G
+i
+​
+ ,θ
+i
+​
+ ) into a fixed-length embedding vector z
+i
+​
+  using Graph Edit Distances / adjacency graph flattenings concatenated with hyperparameter values.
+
+Uncertainty-Aware Evaluation:
+The surrogate predicts estimated validation loss
+y
+^
+​
+
+i
+​
+ =μ(z
+i
+​
+ ) and prediction uncertainty σ(z
+i
+​
+ ).
+
+Upper Confidence Bound (UCB) Selection:
+
+Fitness Score F(z
+i
+​
+ )=μ(z
+i
+​
+ )−κ⋅σ(z
+i
+​
+ )
+Selective Ground-Truth Training:
+
+If uncertainty σ(z
+i
+​
+ )>τ
+threshold
+​
+  OR if
+y
+^
+​
+
+i
+​
+  ranks in the top 10% of the population: run actual PyTorch training for E
+short
+​
+  epochs (e.g., 5 epochs).
+
+Update the surrogate dataset with the true loss y
+i
+​
+  to continuously refine accuracy.
+
+4. End-to-End Search Algorithm
+1
+Population Initialization
+Generate initial hybrid candidate pool
+Randomly generate P candidate configurations A
+i
+​
+ =(G
+i
+​
+ ,θ
+i
+​
+ ). Initialize particle velocities V
+i
+​
+ ∼U(−V
+max
+​
+ ,V
+max
+​
+ ) and personal bests P
+best,i
+​
+ =θ
+i
+​
+ .
+
+2
+Warm-Start Surrogate Training
+Establish initial evaluation baseline
+Train a subset of K initial candidates for E
+short
+​
+  epochs in PyTorch. Record their performance (G
+k
+​
+ ,θ
+k
+​
+ ,y
+k
+​
+ ) and fit the surrogate estimator model.
+
+3
+Co-Evolution Loop
+Execute EA + PSO iterations
+For each generation t=1…T
+max
+​
+ :
+
+Structure: Apply GA Crossover and Structural Mutation to produce child topologies G
+i
+′
+​
+ .
+
+Hyperparameters: Compute PSO-DE velocity vectors V
+i
+t+1
+​
+  and update positions θ
+i
+t+1
+​
+ .
+
+4
+Surrogate Filtering & Selective Evaluation
+Filter out non-promising candidates
+Query the surrogate model for all candidates. Perform actual short-epoch training only on candidates meeting UCB selection thresholds. Update particle P
+best,i
+​
+  and global G
+best
+​
+ .
+
+5
+Surrogate Refinement & Archiving
+Update surrogate state
+Append new ground-truth validation scores to the dataset and refit the surrogate model. Update Pareto-optimal model checkpoints.
+
+6
+Final Optimization Phase
+Train the winning configuration
+Extract global best topology G
+best
+​
+  and parameters θ
+best
+​
+ . Train the full architecture from scratch to convergence on the complete dataset.
+
+5. Software Architecture & Implementation Plan
+Recommended Tech Stack
+Core Language: Python 3.10+
+
+Deep Learning Framework: PyTorch & Torchvision
+
+Graph Manipulation: NetworkX (for DAG verification and structural encoding)
+
+Surrogate Modeling: scikit-learn (GaussianProcessRegressor) or LightGBM
+
+Distributed Evaluation: Ray or Python multiprocessing for evaluating candidates in parallel across multiple GPU/CPU cores
+
+Module Structure
+Plaintext
+automl_engine/
+├── core/
+├── search_space/
+├── optimizers/
+│   ├── ga_topology.py        # Graph crossover/mutation operators
+│   └── pso_de_continuous.py   # Hybrid PSO-DE update engine
+├── surrogates/
+│   ├── base_surrogate.py     # Base estimator interface
+│   └── gp_estimator.py       # Gaussian Process predictor
+├── evaluator/
+│   └── pytorch_runner.py     # Dynamic model builder & trainer
+└── main.py                   # Pipeline orchestrator
+Update the module structure, scafiles, scaffolding, make it advance level with all the folder names and file names with requirement.text and give me the requirement requirements in the chat.
+
+Here is the production-grade, advanced-level software architecture and project scaffolding for NeuroSwarm-AutoML—a dynamic neural architecture search and hyperparameter optimization framework powered by Graph-EAs, Hybrid PSO-DE, and Gaussian Process Surrogates.
+
+Project Scaffolding & Directory Tree
+Plaintext
+neuroswarm_automl/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                   # Automated testing and linting pipeline
+├── config/
+│   ├── __init__.py
+│   ├── base_config.py               # Dataclass-based global search configurations
+│   └── search_space.yaml            # Declarative operations and hyperparameter bounds
+├── data/
+│   ├── raw/                         # Raw dataset downloads (e.g., CIFAR-10)
+│   └── processed/                   # Preprocessed PyTorch DataLoaders
+├── docs/
+│   └── ARCHITECTURE.md              # System design & theoretical mathematical foundations
+├── src/
+│   └── neuroswarm/
+│       ├── __init__.py
+│       ├── core/
+│       │   ├── __init__.py
+│       │   ├── candidate.py         # Composite Agent abstraction (DAG + Hyperparameters)
+│       │   └── runner.py            # Multiprocessing/Ray parallel execution engine
+│       ├── search_space/
+│       │   ├── __init__.py
+│       │   ├── dag_space.py         # NetworkX DAG graph generation, topological sorting
+│       │   └── dynamic_builder.py   # PyTorch dynamic graph-to-nn.Module compiler
+│       ├── optimizers/
+│       │   ├── __init__.py
+│       │   ├── base_optimizer.py    # Abstract base class for metaheuristics
+│       │   ├── ga_topology.py       # Graph Crossover and Node/Edge Mutation operators
+│       │   ├── pso_de_continuous.py # Hybrid PSO-DE Continuous Hyperparameter Engine
+│       │   └── bilevel_engine.py    # Bi-level co-evolution coordinator
+│       ├── surrogates/
+│       │   ├── __init__.py
+│       │   ├── base_surrogate.py    # Surrogate model interface
+│       │   ├── gp_estimator.py      # Gaussian Process estimator with UCB acquisition
+│       │   └── graph_embedder.py    # Converts (DAG, Hyperparams) to vector embeddings
+│       ├── utils/
+│       │   ├── __init__.py
+│       │   ├── metrics.py           # Model parameter count, FLOPs, accuracy calculators
+│       │   └── visualization.py     # Pareto front and convergence plotting tools
+│       └── main.py                  # Orchestrator CLI for executing NAS search
+├── tests/
+│   ├── unit/
+│   │   ├── test_dag_space.py        # Validates DAG sanity & cycle detection
+│   │   ├── test_dynamic_builder.py  # Ensures dynamic PyTorch graphs execute forward pass
+│   │   └── test_pso_de.py           # Tests PSO velocity clamping and DE mutations
+│   └── integration/
+│       └── test_full_pipeline.py    # Dry run of surrogate-assisted search loop
+├── .gitignore
+├── LICENSE
+├── README.md
+├── pyproject.toml                   # Modern Python project metadata & build setup
+└── requirements.txt                 # Production project dependencies
+Key Architectural Enhancements
+src/neuroswarm/search_space/dynamic_builder.py: Compiles an arbitrary DAG adjacency matrix into a valid PyTorch nn.Module execution graph, dynamically instantiating input/output tensors and skip-connection additions.
+
+src/neuroswarm/optimizers/bilevel_engine.py: Manages the bi-level optimization loop where the upper level (GA topology) and lower level (PSO-DE continuous search) exchange candidate fitness scores.
+
+src/neuroswarm/surrogates/graph_embedder.py: Computes graph invariants (spectral radius, degree distributions) combined with continuous parameter vectors to create unified embeddings for Gaussian Process training.
+
+src/neuroswarm/core/runner.py: Wraps PyTorch training inside isolated worker processes to avoid memory leaks across dynamic model instantiations.
+
+Requirements File (requirements.txt)
+Plaintext
+# --- Deep Learning Core ---
+torch>=2.2.0
+torchvision>=0.17.0
+torcheval>=0.0.7
+
+# --- Graph Processing & Metaheuristics ---
+networkx>=3.2
+numpy>=1.26.0
+scipy>=1.12.0
+
+# --- Surrogate Modeling & Machine Learning ---
+scikit-learn>=1.4.0
+lightgbm>=4.3.0
+
+# --- Distributed Computing & Utilities ---
+ray>=2.9.0
+tqdm>=4.66.0
+pyyaml>=6.0.1
+pydantic>=2.6.0
+
+# --- Visualization & Monitoring ---
+matplotlib>=3.8.0
+seaborn>=0.13.0
+graphviz>=0.20.1
+
+# --- Testing & Developer Tooling ---
+pytest>=8.0.0
+pytest-cov>=4.1.0
+black>=24.1.0
+flake8>=7.0.0
+Create terminal command to create all theses folders and files
+
+Here are the terminal commands to generate the entire project tree along with your requirements.txt file in one shot.
+
+Option 1: Using standard Bash / Zsh (Linux & macOS)
+Copy and run this single snippet in your terminal:
+
+Bash
+# Create Directory Scaffolding
+mkdir -p neuroswarm_automl/{.github/workflows,config,data/{raw,processed},docs,src/neuroswarm/{core,search_space,optimizers,surrogates,utils},tests/{unit,integration}}
+
+# Create Files
+touch neuroswarm_automl/.github/workflows/ci.yml \
+      neuroswarm_automl/config/{__init__.py,base_config.py,search_space.yaml} \
+      neuroswarm_automl/docs/ARCHITECTURE.md \
+      neuroswarm_automl/src/neuroswarm/{__init__.py,main.py} \
+      neuroswarm_automl/src/neuroswarm/core/{__init__.py,candidate.py,runner.py} \
+      neuroswarm_automl/src/neuroswarm/search_space/{__init__.py,dag_space.py,dynamic_builder.py} \
+      neuroswarm_automl/src/neuroswarm/optimizers/{__init__.py,base_optimizer.py,ga_topology.py,pso_de_continuous.py,bilevel_engine.py} \
+      neuroswarm_automl/src/neuroswarm/surrogates/{__init__.py,base_surrogate.py,gp_estimator.py,graph_embedder.py} \
+      neuroswarm_automl/src/neuroswarm/utils/{__init__.py,metrics.py,visualization.py} \
+      neuroswarm_automl/tests/unit/{test_dag_space.py,test_dynamic_builder.py,test_pso_de.py} \
+      neuroswarm_automl/tests/integration/test_full_pipeline.py \
+      neuroswarm_automl/{.gitignore,LICENSE,README.md,pyproject.toml}
+
+# Populate requirements.txt
+cat << 'EOF' > neuroswarm_automl/requirements.txt
+# --- Deep Learning Core ---
+torch>=2.2.0
+torchvision>=0.17.0
+torcheval>=0.0.7
+
+# --- Graph Processing & Metaheuristics ---
+networkx>=3.2
+numpy>=1.26.0
+scipy>=1.12.0
+
+# --- Surrogate Modeling & Machine Learning ---
+scikit-learn>=1.4.0
+lightgbm>=4.3.0
+
+# --- Distributed Computing & Utilities ---
+ray>=2.9.0
+tqdm>=4.66.0
+pyyaml>=6.0.1
+pydantic>=2.6.0
+
+# --- Visualization & Monitoring ---
+matplotlib>=3.8.0
+seaborn>=0.13.0
+graphviz>=0.20.1
+
+# --- Testing & Developer Tooling ---
+pytest>=8.0.0
+pytest-cov>=4.1.0
+black>=24.1.0
+flake8>=7.0.0
+EOF
+Option 2: Using PowerShell (Windows)
+If you are on Windows using PowerShell, run this block:
+
+PowerShell
+# Create Directories
+$dirs = @(
+    "neuroswarm_automl\.github\workflows",
+    "neuroswarm_automl\config",
+    "neuroswarm_automl\data\raw",
+    "neuroswarm_automl\data\processed",
+    "neuroswarm_automl\docs",
+    "neuroswarm_automl\src\neuroswarm\core",
+    "neuroswarm_automl\src\neuroswarm\search_space",
+    "neuroswarm_automl\src\neuroswarm\optimizers",
+    "neuroswarm_automl\src\neuroswarm\surrogates",
+    "neuroswarm_automl\src\neuroswarm\utils",
+    "neuroswarm_automl\tests\unit",
+    "neuroswarm_automl\tests\integration"
+)
+foreach ($dir in $dirs) { New-Item -ItemType Directory -Path $dir -Force }
+
+# Create Files
+$files = @(
+    "neuroswarm_automl\.github\workflows\ci.yml",
+    "neuroswarm_automl\config\__init__.py",
+    "neuroswarm_automl\config\base_config.py",
+    "neuroswarm_automl\config\search_space.yaml",
+    "neuroswarm_automl\docs\ARCHITECTURE.md",
+    "neuroswarm_automl\src\neuroswarm\__init__.py",
+    "neuroswarm_automl\src\neuroswarm\main.py",
+    "neuroswarm_automl\src\neuroswarm\core\__init__.py",
+    "neuroswarm_automl\src\neuroswarm\core\candidate.py",
+    "neuroswarm_automl\src\neuroswarm\core\runner.py",
+    "neuroswarm_automl\src\neuroswarm\search_space\__init__.py",
+    "neuroswarm_automl\src\neuroswarm\search_space\dag_space.py",
+    "neuroswarm_automl\src\neuroswarm\search_space\dynamic_builder.py",
+    "neuroswarm_automl\src\neuroswarm\optimizers\__init__.py",
+    "neuroswarm_automl\src\neuroswarm\optimizers\base_optimizer.py",
+    "neuroswarm_automl\src\neuroswarm\optimizers\ga_topology.py",
+    "neuroswarm_automl\src\neuroswarm\optimizers\pso_de_continuous.py",
+    "neuroswarm_automl\src\neuroswarm\optimizers\bilevel_engine.py",
+    "neuroswarm_automl\src\neuroswarm\surrogates\__init__.py",
+    "neuroswarm_automl\src\neuroswarm\surrogates\base_surrogate.py",
+    "neuroswarm_automl\src\neuroswarm\surrogates\gp_estimator.py",
+    "neuroswarm_automl\src\neuroswarm\surrogates\graph_embedder.py",
+    "neuroswarm_automl\src\neuroswarm\utils\__init__.py",
+    "neuroswarm_automl\src\neuroswarm\utils\metrics.py",
+    "neuroswarm_automl\src\neuroswarm\utils\visualization.py",
+    "neuroswarm_automl\tests\unit\test_dag_space.py",
+    "neuroswarm_automl\tests\unit\test_dynamic_builder.py",
+    "neuroswarm_automl\tests\unit\test_pso_de.py",
+    "neuroswarm_automl\tests\integration\test_full_pipeline.py",
+    "neuroswarm_automl\.gitignore",
+    "neuroswarm_automl\LICENSE",
+    "neuroswarm_automl\README.md",
+    "neuroswarm_automl\pyproject.toml"
+)
+foreach ($file in $files) { New-Item -ItemType File -Path $file -Force }
+
+# Populate requirements.txt
+@"
+# --- Deep Learning Core ---
+torch>=2.2.0
+torchvision>=0.17.0
+torcheval>=0.0.7
+
+# --- Graph Processing & Metaheuristics ---
+networkx>=3.2
+numpy>=1.26.0
+scipy>=1.12.0
+
+# --- Surrogate Modeling & Machine Learning ---
+scikit-learn>=1.4.0
+lightgbm>=4.3.0
+
+# --- Distributed Computing & Utilities ---
+ray>=2.9.0
+tqdm>=4.66.0
+pyyaml>=6.0.1
+pydantic>=2.6.0
+
+# --- Visualization & Monitoring ---
+matplotlib>=3.8.0
+seaborn>=0.13.0
+graphviz>=0.20.1
+
+# --- Testing & Developer Tooling ---
+pytest>=8.0.0
+pytest-cov>=4.1.0
+black>=24.1.0
+flake8>=7.0.0
+"@ | Out-File -FilePath "neuroswarm_automl\requirements.txt" -Encoding utf8
+write the code for these files
+
+Here is the production-grade Python code for the entire src/neuroswarm/core/ package.
+
+1. src/neuroswarm/core/__init__.py
+Python
+"""Core data structures and evaluation engine for NeuroSwarm-AutoML."""
+
+from neuroswarm.core.candidate import Candidate
+from neuroswarm.core.runner import ParallelRunner
+
+__all__ = ["Candidate", "ParallelRunner"]
+2. src/neuroswarm/core/candidate.py
+Python
+"""
+Candidate Representation Module.
+
+Encapsulates the bi-level individual: discrete DAG topology combined with continuous
+hyperparameter particle vectors.
+"""
+
+from dataclasses import dataclass, field
+from typing import Dict, Any, Optional
+import uuid
+import numpy as np
+import networkx as nx
+
+
+@dataclass
+class Candidate:
+    """
+    Composite agent representing a neural architecture and its hyperparameter state.
+    """
+    # Unique identifier
+    candidate_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+
+    # Discrete Topology (GA Space)
+    graph: nx.DiGraph = field(default_factory=nx.DiGraph)
+
+    # Continuous Hyperparameters (PSO-DE Space)
+    # Hyperparams vector convention: [log10(lr), momentum/beta1, weight_decay, batch_size_exp]
+    hyperparams: np.ndarray = field(default_factory=lambda: np.zeros(4, dtype=np.float64))
+    velocity: np.ndarray = field(default_factory=lambda: np.zeros(4, dtype=np.float64))
+
+    # Personal Best Memory for PSO
+    pbest_hyperparams: np.ndarray = field(default_factory=lambda: np.zeros(4, dtype=np.float64))
+    pbest_score: float = float("-inf")
+
+    # Fitness Metadata
+    fitness: float = float("-inf")          # Validation accuracy or surrogate score
+    uncertainty: float = 1.0                # Surrogate estimation variance (sigma)
+    evaluated_epochs: int = 0
+    is_ground_truth: bool = False           # True if evaluated via actual PyTorch training
+
+    # Resource metrics
+    param_count: int = 0
+    flops: int = 0
+
+    def __post_init__(self):
+        """Ensure initial personal best matches starting position if uninitialized."""
+        if np.all(self.pbest_hyperparams == 0) and not np.all(self.hyperparams == 0):
+            self.pbest_hyperparams = np.copy(self.hyperparams)
+
+    def update_pbest(self) -> bool:
+        """Updates the particle's historical best position if current fitness improves."""
+        if self.fitness > self.pbest_score:
+            self.pbest_score = self.fitness
+            self.pbest_hyperparams = np.copy(self.hyperparams)
+            return True
+        return False
+
+    def get_decoded_hyperparams(self) -> Dict[str, Any]:
+        """
+        Decodes continuous optimization vector into usable PyTorch parameters.
+        """
+        return {
+            "learning_rate": float(10 ** self.hyperparams[0]),
+            "beta1": float(np.clip(self.hyperparams[1], 0.8, 0.999)),
+            "weight_decay": float(10 ** self.hyperparams[2]),
+            "batch_size": int(2 ** int(round(self.hyperparams[3]))),
+        }
+
+    def clone(self) -> "Candidate":
+        """Deep copies the candidate structure."""
+        new_cand = Candidate(
+            graph=self.graph.copy(),
+            hyperparams=np.copy(self.hyperparams),
+            velocity=np.copy(self.velocity),
+            pbest_hyperparams=np.copy(self.pbest_hyperparams),
+            pbest_score=self.pbest_score,
+            fitness=self.fitness,
+            uncertainty=self.uncertainty,
+            evaluated_epochs=self.evaluated_epochs,
+            is_ground_truth=self.is_ground_truth,
+            param_count=self.param_count,
+            flops=self.flops,
+        )
+        return new_cand
+3. src/neuroswarm/core/runner.py
+Python
+"""
+Parallel Execution Runner.
+
+Executes PyTorch neural network training in isolated process workers (or via Ray)
+to prevent CUDA context degradation and memory leaks during high-throughput NAS evaluation.
+"""
+
+import multiprocessing as mp
+from typing import List, Callable, Tuple, Dict, Any
+import numpy as np
+from tqdm import tqdm
+
+from neuroswarm.core.candidate import Candidate
+
+
+def _worker_eval_wrapper(args: Tuple[Candidate, Callable, int, Dict[str, Any]]) -> Tuple[str, float, int, int]:
+    """
+    Isolated worker process wrapper to build and train a candidate model.
+    """
+    candidate, eval_fn, epochs, dataset_config = args
+    try:
+        # Calls the PyTorch training dynamic runner
+        val_accuracy, param_count, flops = eval_fn(
+            candidate=candidate,
+            epochs=epochs,
+            config=dataset_config
+        )
+        return candidate.candidate_id, val_accuracy, param_count, flops
+    except Exception as e:
+        # Fallback score if architecture instantiation/training fails gracefully
+        print(f"[Runner Worker Error] Candidate {candidate.candidate_id} failed: {e}")
+        return candidate.candidate_id, -1.0, 0, 0
+
+
+class ParallelRunner:
+    """
+    Manages process pools for evaluating pools of dynamic PyTorch architectures.
+    """
+    def __init__(self, num_workers: int = 2, use_ray: bool = False):
+        self.num_workers = min(num_workers, mp.cpu_count())
+        self.use_ray = use_ray
+
+    def evaluate_candidates(
+        self,
+        candidates: List[Candidate],
+        eval_fn: Callable,
+        epochs: int,
+        dataset_config: Dict[str, Any]
+    ) -> List[Candidate]:
+        """
+        Evaluates a batch of candidates in parallel processes.
+        """
+        if not candidates:
+            return []
+
+        tasks = [(cand, eval_fn, epochs, dataset_config) for cand in candidates]
+        results_map = {}
+
+        if self.num_workers > 1:
+            # Use ProcessPoolExecutor / mp.Pool for isolated process execution
+            ctx = mp.get_context("spawn")  # 'spawn' guarantees clean PyTorch CUDA contexts
+            with ctx.Pool(processes=self.num_workers) as pool:
+                for res in tqdm(
+                    pool.imap_unordered(_worker_eval_wrapper, tasks),
+                    total=len(tasks),
+                    desc=f"Training Batch ({epochs} Epochs)"
+                ):
+                    cand_id, score, params, flops = res
+                    results_map[cand_id] = (score, params, flops)
+        else:
+            # Sequential execution fallback
+            for task in tasks:
+                cand_id, score, params, flops = _worker_eval_wrapper(task)
+                results_map[cand_id] = (score, params, flops)
+
+        # Update candidates in place
+        for cand in candidates:
+            if cand.candidate_id in results_map:
+                score, params, flops = results_map[cand.candidate_id]
+                cand.fitness = score
+                cand.param_count = params
+                cand.flops = flops
+                cand.evaluated_epochs += epochs
+                cand.is_ground_truth = True
+                cand.uncertainty = 0.0  # Zero variance for ground-truth evaluations
+                cand.update_pbest()
+
+        return candidates
+write the codes for these files, the code must detailed, extensive, broad and production grade
+
+Here is the complete, production-grade Python implementation for the entire src/neuroswarm/optimizers/ package.
+
+1. src/neuroswarm/optimizers/__init__.py
+Python
+"""Metaheuristic and bi-level optimization engines for NeuroSwarm-AutoML."""
+
+from neuroswarm.optimizers.base_optimizer import BaseOptimizer
+from neuroswarm.optimizers.ga_topology import TopologyGAOptimizer
+from neuroswarm.optimizers.pso_de_continuous import ContinuousPSODE
+from neuroswarm.optimizers.bilevel_engine import BiLevelCoEvolutionEngine
+
+__all__ = [
+    "BaseOptimizer",
+    "TopologyGAOptimizer",
+    "ContinuousPSODE",
+    "BiLevelCoEvolutionEngine",
+]
+2. src/neuroswarm/optimizers/base_optimizer.py
+Python
+"""
+Abstract Base Optimizer Module.
+
+Defines the contract for discrete, continuous, and hybrid population-based optimizers.
+"""
+
+from abc import ABC, abstractmethod
+from typing import List
+from neuroswarm.core.candidate import Candidate
+
+
+class BaseOptimizer(ABC):
+    """Abstract Base Class governing population evolution."""
+
+    def __init__(self, population_size: int):
+        self.population_size = population_size
+
+    @abstractmethod
+    def step(self, population: List[Candidate], current_gen: int, max_gens: int) -> List[Candidate]:
+        """
+        Advances the population by one evolutionary generation / velocity iteration.
+
+        Args:
+            population: List of candidate agents.
+            current_gen: Current generation index.
+            max_gens: Total number of planned generations.
+
+        Returns:
+            Evolved list of candidate agents.
+        """
+        pass
+3. src/neuroswarm/optimizers/ga_topology.py
+Python
+"""
+Genetic Algorithm Topology Optimizer.
+
+Handles structural evolution of the Directed Acyclic Graph (DAG) search space via
+single-point matrix crossovers, edge toggling, node insertion/deletion, and node-type mutations.
+"""
+
+from typing import List, Tuple
+import copy
+import random
+import numpy as np
+import networkx as nx
+
+from neuroswarm.optimizers.base_optimizer import BaseOptimizer
+from neuroswarm.core.candidate import Candidate
+
+
+class TopologyGAOptimizer(BaseOptimizer):
+    """
+    GA Engine executing graph structural crossover and mutation on candidate DAGs.
+    """
+
+    def __init__(
+        self,
+        population_size: int,
+        crossover_prob: float = 0.7,
+        mutation_prob: float = 0.3,
+        available_ops: List[str] = None,
+        max_nodes: int = 10,
+    ):
+        super().__init__(population_size)
+        self.crossover_prob = crossover_prob
+        self.mutation_prob = mutation_prob
+        self.available_ops = available_ops or [
+            "conv3x3",
+            "conv5x5",
+            "depthwise_conv",
+            "resnet_block",
+            "identity",
+        ]
+        self.max_nodes = max_nodes
+
+    def step(self, population: List[Candidate], current_gen: int, max_gens: int) -> List[Candidate]:
+        """Performs tournament selection, crossover, and graph mutations."""
+        sorted_pop = sorted(population, key=lambda c: c.fitness, reverse=True)
+        next_population: List[Candidate] = []
+
+        # Elitism: Retain top 10% un-mutated
+        elite_count = max(1, int(self.population_size * 0.10))
+        for elite in sorted_pop[:elite_count]:
+            next_population.append(elite.clone())
+
+        # Generate offspring for remaining slots
+        while len(next_population) < self.population_size:
+            p1 = self._tournament_select(population)
+            p2 = self._tournament_select(population)
+
+            if random.random() < self.crossover_prob:
+                child_graph1, child_graph2 = self._subgraph_crossover(p1.graph, p2.graph)
+            else:
+                child_graph1, child_graph2 = p1.graph.copy(), p2.graph.copy()
+
+            for child_g in (child_graph1, child_graph2):
+                if len(next_population) >= self.population_size:
+                    break
+
+                if random.random() < self.mutation_prob:
+                    child_g = self._mutate_graph(child_g)
+
+                # Inherit hyperparameter space state from parent p1
+                child_cand = p1.clone()
+                child_cand.graph = child_g
+                child_cand.is_ground_truth = False
+                child_cand.fitness = float("-inf")
+                next_population.append(child_cand)
+
+        return next_population
+
+    def _tournament_select(self, population: List[Candidate], k: int = 3) -> Candidate:
+        """Tournament selection operator."""
+        selected = random.sample(population, k)
+        return max(selected, key=lambda c: c.fitness)
+
+    def _subgraph_crossover(self, g1: nx.DiGraph, g2: nx.DiGraph) -> Tuple[nx.DiGraph, nx.DiGraph]:
+        """Swaps topological subgraph layers between parents while ensuring DAG validity."""
+        c1, c2 = g1.copy(), g2.copy()
+
+        nodes1 = list(c1.nodes())
+        nodes2 = list(c2.nodes())
+
+        # Mid-point crossover swap for internal node attributes
+        min_len = min(len(nodes1), len(nodes2))
+        if min_len > 2:
+            cut_pt = random.randint(1, min_len - 1)
+            for i in range(cut_pt):
+                n1, n2 = nodes1[i], nodes2[i]
+                op1 = c1.nodes[n1].get("op", random.choice(self.available_ops))
+                op2 = c2.nodes[n2].get("op", random.choice(self.available_ops))
+                c1.nodes[n1]["op"] = op2
+                c2.nodes[n2]["op"] = op1
+
+        self._ensure_dag_sanity(c1)
+        self._ensure_dag_sanity(c2)
+        return c1, c2
+
+    def _mutate_graph(self, g: nx.DiGraph) -> nx.DiGraph:
+        """Applies edge toggling, operation swapping, or node additions/deletions."""
+        g_mut = g.copy()
+        mutation_type = random.choice(["toggle_edge", "mutate_op", "add_node"])
+
+        nodes = sorted(list(g_mut.nodes()))
+
+        if mutation_type == "toggle_edge" and len(nodes) > 1:
+            u, v = random.sample(nodes, 2)
+            if u > v:  # Maintain DAG directionality order (u -> v)
+                u, v = v, u
+
+            if g_mut.has_edge(u, v):
+                g_mut.remove_edge(u, v)
+            else:
+                g_mut.add_edge(u, v)
+
+        elif mutation_type == "mutate_op" and len(nodes) > 0:
+            target_node = random.choice(nodes)
+            g_mut.nodes[target_node]["op"] = random.choice(self.available_ops)
+
+        elif mutation_type == "add_node" and len(nodes) < self.max_nodes:
+            new_id = max(nodes) + 1 if nodes else 0
+            g_mut.add_node(new_id, op=random.choice(self.available_ops))
+
+            # Connect to existing nodes ensuring DAG flow
+            target = random.choice(nodes)
+            if target < new_id:
+                g_mut.add_edge(target, new_id)
+            else:
+                g_mut.add_edge(new_id, target)
+
+        self._ensure_dag_sanity(g_mut)
+        return g_mut
+
+    def _ensure_dag_sanity(self, g: nx.DiGraph):
+        """Fixes cycles or disconnected components in the NetworkX structure."""
+        # Fix cycles if introduced
+        while not nx.is_directed_acyclic_graph(g):
+            try:
+                cycle = nx.find_cycle(g)
+                g.remove_edge(*cycle[0][:2])
+            except nx.NetworkXNoCycle:
+                break
+
+        # Guarantee entry point (Node 0) and exit point (Max Node) connectivity
+        nodes = sorted(list(g.nodes()))
+        if len(nodes) < 2:
+            return
+
+        in_0, out_max = nodes[0], nodes[-1]
+        for n in nodes[1:]:
+            if g.in_degree(n) == 0:
+                g.add_edge(in_0, n)
+            if g.out_degree(n) == 0 and n != out_max:
+                g.add_edge(n, out_max)
+4. src/neuroswarm/optimizers/pso_de_continuous.py
+Python
+"""
+Hybrid Particle Swarm Optimization with Differential Evolution (PSO-DE).
+
+Optimizes continuous hyperparameter spaces using standard velocity vectors with dynamic
+inertia decay, coupled with DE mutation vectors to escape velocity stagnation.
+"""
+
+from typing import List
+import numpy as np
+
+from neuroswarm.optimizers.base_optimizer import BaseOptimizer
+from neuroswarm.core.candidate import Candidate
+
+
+class ContinuousPSODE(BaseOptimizer):
+    """
+    Continuous hyperparameter solver combining Swarm acceleration with DE/rand/1 mutation operators.
+    """
+
+    def __init__(
+        self,
+        population_size: int,
+        bounds: np.ndarray = None,
+        w_max: float = 0.9,
+        w_min: float = 0.4,
+        c1: float = 1.496,
+        c2: float = 1.496,
+        de_scaling_factor: float = 0.6,
+        velocity_threshold: float = 1e-4,
+    ):
+        super().__init__(population_size)
+        # Bounds: [ [log10_lr_min, log10_lr_max], [beta1_min, beta1_max], [log10_wd_min, log10_wd_max], [batch_exp_min, batch_exp_max] ]
+        self.bounds = bounds if bounds is not None else np.array([
+            [-4.0, -1.0],   # LR: 1e-4 to 1e-1
+            [0.8, 0.999],   # Beta1 / Momentum
+            [-6.0, -2.0],   # Weight Decay: 1e-6 to 1e-2
+            [4.0, 8.0],     # Batch Size exponent: 2^4 (16) to 2^8 (256)
+        ])
+        self.w_max = w_max
+        self.w_min = w_min
+        self.c1 = c1
+        self.c2 = c2
+        self.F = de_scaling_factor
+        self.velocity_threshold = velocity_threshold
+
+    def step(self, population: List[Candidate], current_gen: int, max_gens: int) -> List[Candidate]:
+        """Executes one iteration of PSO-DE continuous parameter velocity updating."""
+        # Identify global best agent
+        gbest_cand = max(population, key=lambda c: c.pbest_score if c.pbest_score != float("-inf") else c.fitness)
+        gbest_pos = np.copy(gbest_cand.pbest_hyperparams)
+
+        # Compute dynamic inertia weight
+        w = self.w_max - (current_gen / max(1, max_gens)) * (self.w_max - self.w_min)
+        num_candidates = len(population)
+
+        for i, cand in enumerate(population):
+            r1, r2 = np.random.rand(self.bounds.shape[0]), np.random.rand(self.bounds.shape[0])
+
+            # Standard Swarm Acceleration
+            cognitive = self.c1 * r1 * (cand.pbest_hyperparams - cand.hyperparams)
+            social = self.c2 * r2 * (gbest_pos - cand.hyperparams)
+            new_velocity = w * cand.velocity + cognitive + social
+
+            # Apply DE Mutation if velocity magnitude drops below threshold (Stagnation Breakout)
+            if np.linalg.norm(new_velocity) < self.velocity_threshold and num_candidates >= 4:
+                idx_pool = [j for j in range(num_candidates) if j != i]
+                r_a, r_b = np.random.choice(idx_pool, size=2, replace=False)
+                de_mutation_vec = self.F * (population[r_a].hyperparams - population[r_b].hyperparams)
+                new_velocity = new_velocity + de_mutation_vec
+
+            # Clamp Velocity
+            v_max = 0.2 * (self.bounds[:, 1] - self.bounds[:, 0])
+            new_velocity = np.clip(new_velocity, -v_max, v_max)
+
+            # Update position and clamp to search domain bounds
+            new_position = cand.hyperparams + new_velocity
+            new_position = np.clip(new_position, self.bounds[:, 0], self.bounds[:, 1])
+
+            # Assign updated vectors back to candidate
+            cand.velocity = new_velocity
+            cand.hyperparams = new_position
+
+        return population
+5. src/neuroswarm/optimizers/bilevel_engine.py
+Python
+"""
+Bi-Level Co-Evolutionary Engine.
+
+Synchronizes the discrete GA topology optimizer with the continuous PSO-DE hyperparameter optimizer
+within a unified multi-epoch search runtime.
+"""
+
+from typing import List, Callable, Dict, Any, Optional
+import numpy as np
+
+from neuroswarm.core.candidate import Candidate
+from neuroswarm.optimizers.ga_topology import TopologyGAOptimizer
+from neuroswarm.optimizers.pso_de_continuous import ContinuousPSODE
+from neuroswarm.surrogates.gp_estimator import GaussianProcessSurrogate
+
+
+class BiLevelCoEvolutionEngine:
+    """
+    Coordinating runtime orchestrating bi-level structural (GA) and hyperparameter (PSO-DE) evolution.
+    """
+
+    def __init__(
+        self,
+        population_size: int = 20,
+        ga_optimizer: Optional[TopologyGAOptimizer] = None,
+        pso_optimizer: Optional[ContinuousPSODE] = None,
+        surrogate: Optional[GaussianProcessSurrogate] = None,
+    ):
+        self.population_size = population_size
+        self.ga_opt = ga_optimizer or TopologyGAOptimizer(population_size=population_size)
+        self.pso_opt = pso_optimizer or ContinuousPSODE(population_size=population_size)
+        self.surrogate = surrogate or GaussianProcessSurrogate()
+
+        self.global_best_candidate: Optional[Candidate] = None
+        self.history: List[Dict[str, Any]] = []
+
+    def run_generation(
+        self,
+        population: List[Candidate],
+        current_gen: int,
+        max_gens: int,
+        eval_fn: Callable,
+        dataset_config: Dict[str, Any],
+        short_epochs: int = 5,
+        ucb_kappa: float = 1.96,
+    ) -> List[Candidate]:
+        """
+        Executes a bi-level evolutionary step:
+        1. Evolve continuous hyperparameters via PSO-DE.
+        2. Evolve discrete DAG topologies via GA.
+        3. Filter candidates through Gaussian Process surrogate UCB selection.
+        4. Train selected candidates for short epochs.
+        """
+        # Step 1: Continuous Parameter Velocity Update (PSO-DE)
+        population = self.pso_opt.step(population, current_gen, max_gens)
+
+        # Step 2: Discrete Topology Evolution (GA)
+        population = self.ga_opt.step(population, current_gen, max_gens)
+
+        # Step 3: Surrogate Filtering & Fitness Estimation
+        if self.surrogate.is_fitted:
+            predictions = [self.surrogate.predict(cand) for cand in population]
+            for cand, (mu, sigma) in zip(population, predictions):
+                cand.uncertainty = sigma
+                # Acquisition function: Upper Confidence Bound (UCB) score
+                if not cand.is_ground_truth:
+                    cand.fitness = mu + ucb_kappa * sigma
+
+            # Sort by acquisition score to select top candidates for ground-truth training
+            population.sort(key=lambda c: c.fitness, reverse=True)
+            eval_cutoff = max(2, int(self.population_size * 0.20))
+            candidates_to_eval = [c for c in population[:eval_cutoff] if not c.is_ground_truth]
+        else:
+            # Warm-start phase: evaluate all candidates if surrogate is uninitialized
+            candidates_to_eval = [c for c in population if not c.is_ground_truth]
+
+        # Step 4: Ground-truth Training Phase
+        if candidates_to_eval:
+            for cand in candidates_to_eval:
+                val_acc, params, flops = eval_fn(cand, epochs=short_epochs, config=dataset_config)
+                cand.fitness = val_acc
+                cand.param_count = params
+                cand.flops = flops
+                cand.is_ground_truth = True
+                cand.uncertainty = 0.0
+                cand.update_pbest()
+
+            # Refit Gaussian Process surrogate with newly evaluated samples
+            evaluated_samples = [c for c in population if c.is_ground_truth]
+            if len(evaluated_samples) >= 5:
+                self.surrogate.fit(evaluated_samples)
+
+        # Track global best candidate
+        current_best = max(population, key=lambda c: c.fitness)
+        if self.global_best_candidate is None or current_best.fitness > self.global_best_candidate.fitness:
+            self.global_best_candidate = current_best.clone()
+
+        self.history.append({
+            "generation": current_gen,
+            "best_fitness": self.global_best_candidate.fitness,
+            "mean_fitness": float(np.mean([c.fitness for c in population])),
+            "surrogate_fitted": self.surrogate.is_fitted,
+        })
+
+        return population
+write the codes for these files, the code must detailed, extensive, broad and production grade
+
+Here is the production-grade Python code for the entire src/neuroswarm/search_space/ package.
+
+1. src/neuroswarm/search_space/__init__.py
+Python
+"""Search space generators and PyTorch dynamic graph compilation engines."""
+
+from neuroswarm.search_space.dag_space import DAGSearchSpace
+from neuroswarm.search_space.dynamic_builder import DynamicNeuralNetwork
+
+__all__ = ["DAGSearchSpace", "DynamicNeuralNetwork"]
+2. src/neuroswarm/search_space/dag_space.py
+Python
+"""
+Directed Acyclic Graph Search Space Manager.
+
+Generates, validates, and manipulates search space DAG structures for neural architectures.
+"""
+
+from typing import List, Optional, Dict, Any
+import random
+import networkx as nx
+
+
+class DAGSearchSpace:
+    """
+    Manages structural constraints, node operation assignments, and validity checks for DAGs.
+    """
+
+    DEFAULT_OPERATIONS = [
+        "conv3x3",
+        "conv5x5",
+        "depthwise_conv",
+        "resnet_block",
+        "identity",
+    ]
+
+    def __init__(
+        self,
+        min_nodes: int = 4,
+        max_nodes: int = 10,
+        available_ops: Optional[List[str]] = None,
+        edge_prob: float = 0.4,
+    ):
+        self.min_nodes = min_nodes
+        self.max_nodes = max_nodes
+        self.available_ops = available_ops or self.DEFAULT_OPERATIONS
+        self.edge_prob = edge_prob
+
+    def sample_random_dag(self) -> nx.DiGraph:
+        """
+        Generates a valid, topological DAG with random op nodes and connectivity.
+        """
+        num_nodes = random.randint(self.min_nodes, self.max_nodes)
+        g = nx.DiGraph()
+
+        # Add topologically ordered nodes
+        for i in range(num_nodes):
+            g.add_node(i, op=random.choice(self.available_ops))
+
+        # Add forward edges ensuring u < v to prevent cycles
+        for u in range(num_nodes):
+            for v in range(u + 1, num_nodes):
+                if random.random() < self.edge_prob:
+                    g.add_edge(u, v)
+
+        # Force connectivity from source (0) to sink (num_nodes - 1)
+        self.repair_dag(g)
+        return g
+
+    def validate_dag(self, g: nx.DiGraph) -> bool:
+        """
+        Verifies that a graph is a valid DAG with reachable input/output paths.
+        """
+        if not nx.is_directed_acyclic_graph(g):
+            return False
+
+        nodes = sorted(list(g.nodes()))
+        if len(nodes) < 2:
+            return False
+
+        source, sink = nodes[0], nodes[-1]
+
+        # Check path existence from source to sink
+        if not nx.has_path(g, source, sink):
+            return False
+
+        return True
+
+    def repair_dag(self, g: nx.DiGraph) -> nx.DiGraph:
+        """
+        Fixes cycles, orphaned nodes, and isolated subgraphs to guarantee executable execution graphs.
+        """
+        # 1. Eliminate cycles if present
+        while not nx.is_directed_acyclic_graph(g):
+            try:
+                cycle = nx.find_cycle(g)
+                g.remove_edge(*cycle[0][:2])
+            except nx.NetworkXNoCycle:
+                break
+
+        nodes = sorted(list(g.nodes()))
+        if len(nodes) < 2:
+            return g
+
+        source, sink = nodes[0], nodes[-1]
+
+        # 2. Connect orphaned internal nodes (in-degree = 0 or out-degree = 0)
+        for n in nodes:
+            if n != source and g.in_degree(n) == 0:
+                # Find an earlier node to connect from
+                candidates = [prev for prev in nodes if prev < n]
+                if candidates:
+                    g.add_edge(random.choice(candidates), n)
+
+            if n != sink and g.out_degree(n) == 0:
+                # Find a later node to connect to
+                candidates = [nxt for nxt in nodes if nxt > n]
+                if candidates:
+                    g.add_edge(n, random.choice(candidates))
+
+        # 3. Ensure direct path from source to sink
+        if not nx.has_path(g, source, sink):
+            g.add_edge(source, sink)
+
+        return g
+3. src/neuroswarm/search_space/dynamic_builder.py
+Python
+"""
+Dynamic PyTorch Graph Compiler.
+
+Compiles arbitrary NetworkX DAG topologies into executable PyTorch nn.Modules, handling
+channel dimension alignments, skip connection additions, and topological execution order.
+"""
+
+from typing import Dict, List, Tuple, Any
+import networkx as nx
+import torch
+import torch.nn as nn
+
+
+class ResNetBlock(nn.Module):
+    """Standard Residual Conv Block for DAG nodes."""
+    def __init__(self, channels: int):
+        super().__init__()
+        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(channels)
+        self.relu = nn.ReLU(inplace=True)
+        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(channels)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        residual = x
+        out = self.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
+        return self.relu(out + residual)
+
+
+class DynamicOpNode(nn.Module):
+    """
+    Wraps individual layer operations within the execution graph.
+    """
+    def __init__(self, op_type: str, channels: int):
+        super().__init__()
+        self.op_type = op_type
+
+        if op_type == "conv3x3":
+            self.op = nn.Sequential(
+                nn.Conv2d(channels, channels, kernel_size=3, padding=1, bias=False),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True)
+            )
+        elif op_type == "conv5x5":
+            self.op = nn.Sequential(
+                nn.Conv2d(channels, channels, kernel_size=5, padding=2, bias=False),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True)
+            )
+        elif op_type == "depthwise_conv":
+            self.op = nn.Sequential(
+                nn.Conv2d(channels, channels, kernel_size=3, padding=1, groups=channels, bias=False),
+                nn.Conv2d(channels, channels, kernel_size=1, bias=False),
+                nn.BatchNorm2d(channels),
+                nn.ReLU(inplace=True)
+            )
+        elif op_type == "resnet_block":
+            self.op = ResNetBlock(channels)
+        elif op_type == "identity":
+            self.op = nn.Identity()
+        else:
+            raise ValueError(f"Unsupported operation type: {op_type}")
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.op(x)
+
+
+class DynamicNeuralNetwork(nn.Module):
+    """
+    Compiles a NetworkX DAG into a fully functional, end-to-end PyTorch neural network.
+    """
+
+    def __init__(
+        self,
+        dag: nx.DiGraph,
+        in_channels: int = 3,
+        base_channels: int = 32,
+        num_classes: int = 10,
+    ):
+        super().__init__()
+        self.dag = dag.copy()
+        self.in_channels = in_channels
+        self.base_channels = base_channels
+        self.num_classes = num_classes
+
+        # Validate DAG topological order
+        self.topological_order: List[int] = list(nx.topological_sort(self.dag))
+
+        # Initial STEM stem layer to project raw input image channels
+        self.stem = nn.Sequential(
+            nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(base_channels),
+            nn.ReLU(inplace=True)
+        )
+
+        # Dynamic Node operations
+        self.node_ops = nn.ModuleDict()
+        for node in self.topological_order:
+            op_type = self.dag.nodes[node].get("op", "conv3x3")
+            self.node_ops[str(node)] = DynamicOpNode(op_type, base_channels)
+
+        # Final Classification Head
+        self.head = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Linear(base_channels, num_classes)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Executes DAG forward propagation via tensor aggregation over edge dependencies.
+        """
+        node_outputs: Dict[int, torch.Tensor] = {}
+        stem_out = self.stem(x)
+
+        for node in self.topological_order:
+            in_edges = list(self.dag.in_edges(node))
+
+            if not in_edges:
+                # Source node receives stem features
+                node_input = stem_out
+            else:
+                # Intermediate nodes aggregate input tensors from parent nodes
+                parent_tensors = [node_outputs[u] for u, _ in in_edges]
+                if len(parent_tensors) == 1:
+                    node_input = parent_tensors[0]
+                else:
+                    # Sum element-wise across multiple incoming edges (skip connections)
+                    node_input = torch.stack(parent_tensors, dim=0).sum(dim=0)
+
+            # Apply dynamic layer operation
+            node_outputs[node] = self.node_ops[str(node)](node_input)
+
+        # Aggregate sink node outputs (nodes without outgoing edges)
+        sink_nodes = [n for n in self.topological_order if self.dag.out_degree(n) == 0]
+        if len(sink_nodes) == 1:
+            final_features = node_outputs[sink_nodes[0]]
+        else:
+            sink_tensors = [node_outputs[n] for n in sink_nodes]
+            final_features = torch.stack(sink_tensors, dim=0).sum(dim=0)
+
+        return self.head(final_features)
+you didnt write the code for GaussianProcessSurrogate
+
+Here is the complete, production-grade implementation of the Gaussian Process Surrogate engine. This includes graph feature embedding generation using graph invariants and Upper Confidence Bound (UCB) acquisition for uncertainty-guided search.
+
+Write this code inside src/neuroswarm/surrogates/gp_estimator.py:
+
+Python
+"""
+Gaussian Process Surrogate Estimator Module.
+
+Fits continuous Gaussian Process models on graph embeddings and hyperparameter vectors
+to estimate performance mean and epistemic variance for fast UCB filtering.
+"""
+
+from typing import List, Tuple, Optional, Any
+import numpy as np
+import networkx as nx
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C, WhiteKernel
+from sklearn.preprocessing import StandardScaler
+
+from neuroswarm.core.candidate import Candidate
+
+
+class GraphEmbedder:
+    """
+    Extracts topological invariants and continuous hyperparameters to form
+    a fixed-dimensional vector representation for surrogate modeling.
+    """
+
+    @staticmethod
+    def extract_features(candidate: Candidate) -> np.ndarray:
+        """
+        Converts a Candidate (DAG + hyperparameter vector) into a 1D numerical embedding vector.
+        """
+        g = candidate.graph
+        nodes = list(g.nodes())
+        num_nodes = len(nodes)
+
+        if num_nodes == 0:
+            graph_features = np.zeros(6, dtype=np.float64)
+        else:
+            # 1. Structural topological invariants
+            num_edges = g.number_of_edges()
+            density = nx.density(g)
+
+            # 2. Spectral features & degree stats
+            in_degrees = [d for _, d in g.in_degree()]
+            out_degrees = [d for _, d in g.out_degree()]
+            mean_in_degree = np.mean(in_degrees) if in_degrees else 0.0
+            mean_out_degree = np.mean(out_degrees) if out_degrees else 0.0
+
+            # Longest path depth (topological height)
+            try:
+                longest_path = len(nx.dag_longest_path(g))
+            except Exception:
+                longest_path = 0.0
+
+            graph_features = np.array([
+                float(num_nodes),
+                float(num_edges),
+                float(density),
+                float(mean_in_degree),
+                float(mean_out_degree),
+                float(longest_path)
+            ], dtype=np.float64)
+
+        # Concatenate graph topological features with continuous hyperparameter vector
+        full_embedding = np.concatenate([graph_features, candidate.hyperparams])
+        return full_embedding
+
+
+class GaussianProcessSurrogate:
+    """
+    Gaussian Process Regressor wrapped with standard scaling and variance estimation.
+    """
+
+    def __init__(self, alpha: float = 1e-6, n_restarts_optimizer: int = 5):
+        # Radial Basis Function (RBF) kernel with noise term for observation variances
+        kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e2)) + WhiteKernel(noise_level=1e-3)
+
+        self.gp = GaussianProcessRegressor(
+            kernel=kernel,
+            alpha=alpha,
+            n_restarts_optimizer=n_restarts_optimizer,
+            normalize_y=True,
+            random_state=42
+        )
+        self.scaler = StandardScaler()
+        self.embedder = GraphEmbedder()
+        self.is_fitted: bool = False
+
+    def fit(self, candidates: List[Candidate]) -> None:
+        """
+        Trains the Gaussian Process on evaluated ground-truth candidates.
+        """
+        ground_truth_cands = [c for c in candidates if c.is_ground_truth and c.fitness != float("-inf")]
+
+        if len(ground_truth_cands) < 3:
+            # Not enough samples to fit a stable GP kernel
+            return
+
+        X_raw = np.array([self.embedder.extract_features(c) for c in ground_truth_cands])
+        y = np.array([c.fitness for c in ground_truth_cands])
+
+        # Standardize input vector dimensions
+        X_scaled = self.scaler.fit_transform(X_raw)
+
+        # Fit Gaussian Process
+        self.gp.fit(X_scaled, y)
+        self.is_fitted = True
+
+    def predict(self, candidate: Candidate) -> Tuple[float, float]:
+        """
+        Predicts mean performance (mu) and standard deviation variance (sigma) for a candidate.
+
+        Returns:
+            Tuple[float, float]: (mean_prediction, uncertainty_sigma)
+        """
+        if not self.is_fitted:
+            # Return prior baseline if model is uninitialized
+            return 0.0, 1.0
+
+        feat = self.embedder.extract_features(candidate).reshape(1, -1)
+        feat_scaled = self.scaler.transform(feat)
+
+        mean, std = self.gp.predict(feat_scaled, return_std=True)
+        return float(mean[0]), float(std[0])
+
+    def acquisition_ucb(self, candidate: Candidate, kappa: float = 1.96) -> float:
+        """
+        Computes Upper Confidence Bound (UCB) score balancing exploration vs exploitation:
+        Score = \mu + \kappa \cdot \sigma
+        """
+        mu, sigma = self.predict(candidate)
+        return mu + kappa * sigma
+Update src/neuroswarm/surrogates/__init__.py
+Make sure your package initialization exposes the surrogate classes clean and ready for imports:
+
+Python
+"""Surrogate modeling package for NeuroSwarm-AutoML."""
+
+from neuroswarm.surrogates.gp_estimator import GaussianProcessSurrogate, GraphEmbedder
+
+__all__ = ["GaussianProcessSurrogate", "GraphEmbedder"]
+write the complete code for base_surrogate and graph_embedder
+
+Here is the production-grade implementation for base_surrogate.py and graph_embedder.py.
+
+1. src/neuroswarm/surrogates/base_surrogate.py
+Python
+"""
+Abstract Base Surrogate Model Module.
+
+Defines the unified interface for surrogate performance estimators (e.g., Gaussian Processes,
+LightGBM, Random Forests) used to accelerate Neural Architecture Search (NAS).
+"""
+
+from abc import ABC, abstractmethod
+from typing import List, Tuple
+import numpy as np
+
+from neuroswarm.core.candidate import Candidate
+
+
+class BaseSurrogateModel(ABC):
+    """Abstract Base Class for surrogate performance estimation models."""
+
+    @property
+    @abstractmethod
+    def is_fitted(self) -> bool:
+        """Returns True if the surrogate has been trained on ground-truth evaluation data."""
+        pass
+
+    @abstractmethod
+    def fit(self, candidates: List[Candidate]) -> None:
+        """
+        Trains the surrogate model on evaluated ground-truth candidates.
+
+        Args:
+            candidates: List of Candidate objects containing evaluated fitness scores.
+        """
+        pass
+
+    @abstractmethod
+    def predict(self, candidate: Candidate) -> Tuple[float, float]:
+        """
+        Predicts performance mean and epistemic variance for a single candidate.
+
+        Args:
+            candidate: Target Candidate object.
+
+        Returns:
+            Tuple[float, float]: (predicted_mean, uncertainty_std)
+        """
+        pass
+
+    def predict_batch(self, candidates: List[Candidate]) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Predicts performance mean and variance across a batch of candidates.
+
+        Args:
+            candidates: List of target Candidate objects.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: (array_of_means, array_of_stds)
+        """
+        means, stds = [], []
+        for cand in candidates:
+            mu, sigma = self.predict(cand)
+            means.append(mu)
+            stds.append(sigma)
+        return np.array(means, dtype=np.float64), np.array(stds, dtype=np.float64)
+
+    def acquisition_ucb(self, candidate: Candidate, kappa: float = 1.96) -> float:
+        """
+        Computes Upper Confidence Bound (UCB) acquisition score.
+
+        Score = mu + kappa * sigma
+
+        Args:
+            candidate: Candidate instance to evaluate.
+            kappa: Exploration trade-off coefficient.
+
+        Returns:
+            float: Calculated UCB acquisition score.
+        """
+        mu, sigma = self.predict(candidate)
+        return float(mu + kappa * sigma)
+2. src/neuroswarm/surrogates/graph_embedder.py
+Python
+"""
+Graph & Hyperparameter Feature Embedding Module.
+
+Transforms DAG neural architectures and continuous hyperparameter vectors into fixed-dimensional
+numerical feature embeddings suitable for tabular machine learning surrogate models.
+"""
+
+from typing import List, Optional, Dict
+import numpy as np
+import networkx as nx
+from scipy.linalg import svdvals
+
+from neuroswarm.core.candidate import Candidate
+
+
+class GraphEmbedder:
+    """
+    Computes comprehensive vector embeddings combining topological graph invariants,
+    spectral properties, operation distributions, and continuous hyperparameters.
+    """
+
+    DEFAULT_OPS = [
+        "conv3x3",
+        "conv5x5",
+        "depthwise_conv",
+        "resnet_block",
+        "identity",
+    ]
+
+    def __init__(
+        self,
+        available_ops: Optional[List[str]] = None,
+        max_nodes: int = 10,
+        spectral_k: int = 4,
+    ):
+        self.available_ops = available_ops or self.DEFAULT_OPS
+        self.max_nodes = max_nodes
+        self.spectral_k = spectral_k
+        self.op_to_idx: Dict[str, int] = {op: i for i, op in enumerate(self.available_ops)}
+
+    @property
+    def embedding_dim(self) -> int:
+        """Calculates the total dimension of the extracted feature vector."""
+        topological_dim = 8
+        op_hist_dim = len(self.available_ops)
+        spectral_dim = self.spectral_k
+        hyperparam_dim = 4  # Standard continuous hyperparameter vector length
+        return topological_dim + op_hist_dim + spectral_dim + hyperparam_dim
+
+    def extract_features(self, candidate: Candidate) -> np.ndarray:
+        """
+        Extracts a unified 1D numerical feature vector for a candidate.
+
+        Feature Vector Structure:
+        [
+            - Structural Topological Invariants (8 dimensions)
+            - Operation Normalized Histogram (len(available_ops) dimensions)
+            - Singular Value Spectral Properties (spectral_k dimensions)
+            - Continuous Hyperparameter Vector (4 dimensions)
+        ]
+        """
+        g = candidate.graph
+
+        # 1. Structural Graph Invariants
+        topological_feats = self._extract_topological_features(g)
+
+        # 2. Node Operation Frequency Histogram
+        op_histogram = self._extract_operation_histogram(g)
+
+        # 3. Spectral Properties (Adjacency Matrix SVD Singular Values)
+        spectral_feats = self._extract_spectral_features(g)
+
+        # 4. Continuous Hyperparameter Vector
+        hyperparam_feats = np.copy(candidate.hyperparams)
+
+        # Concatenate all feature sub-vectors into a single 1D vector
+        return np.concatenate([
+            topological_feats,
+            op_histogram,
+            spectral_feats,
+            hyperparam_feats,
+        ], dtype=np.float64)
+
+    def batch_extract_features(self, candidates: List[Candidate]) -> np.ndarray:
+        """
+        Extracts feature vectors for a batch of candidates into a 2D matrix of shape (N, D).
+        """
+        if not candidates:
+            return np.empty((0, self.embedding_dim), dtype=np.float64)
+
+        return np.array([self.extract_features(c) for c in candidates], dtype=np.float64)
+
+    def _extract_topological_features(self, g: nx.DiGraph) -> np.ndarray:
+        """Extracts structural invariants from the graph."""
+        num_nodes = g.number_of_nodes()
+        num_edges = g.number_of_edges()
+
+        if num_nodes == 0:
+            return np.zeros(8, dtype=np.float64)
+
+        density = nx.density(g)
+        in_degrees = [d for _, d in g.in_degree()]
+        out_degrees = [d for _, d in g.out_degree()]
+
+        mean_in = float(np.mean(in_degrees)) if in_degrees else 0.0
+        max_in = float(np.max(in_degrees)) if in_degrees else 0.0
+        mean_out = float(np.mean(out_degrees)) if out_degrees else 0.0
+        max_out = float(np.max(out_degrees)) if out_degrees else 0.0
+
+        try:
+            longest_path_len = float(len(nx.dag_longest_path(g)))
+        except Exception:
+            longest_path_len = 0.0
+
+        return np.array([
+            float(num_nodes),
+            float(num_edges),
+            float(density),
+            mean_in,
+            max_in,
+            mean_out,
+            max_out,
+            longest_path_len,
+        ], dtype=np.float64)
+
+    def _extract_operation_histogram(self, g: nx.DiGraph) -> np.ndarray:
+        """Computes normalized operation frequency distribution across DAG nodes."""
+        counts = np.zeros(len(self.available_ops), dtype=np.float64)
+        for _, data in g.nodes(data=True):
+            op = data.get("op", None)
+            if op in self.op_to_idx:
+                counts[self.op_to_idx[op]] += 1.0
+
+        # Normalize by total node count
+        total_nodes = g.number_of_nodes()
+        if total_nodes > 0:
+            counts /= float(total_nodes)
+
+        return counts
+
+    def _extract_spectral_features(self, g: nx.DiGraph) -> np.ndarray:
+        """Computes top singular values of the graph adjacency matrix."""
+        if g.number_of_nodes() == 0:
+            return np.zeros(self.spectral_k, dtype=np.float64)
+
+        adj_matrix = nx.to_numpy_array(g, dtype=np.float64)
+
+        try:
+            s = svdvals(adj_matrix)
+        except Exception:
+            s = np.zeros(g.number_of_nodes(), dtype=np.float64)
+
+        # Pad or truncate to fixed spectral_k dimension
+        padded_s = np.zeros(self.spectral_k, dtype=np.float64)
+        k = min(len(s), self.spectral_k)
+        padded_s[:k] = s[:k]
+
+        return padded_s
+write the complete code init code for the surrogates
+
+Python
+"""
+Surrogate Performance Estimation Package for NeuroSwarm-AutoML.
+
+Provides abstract surrogate interfaces, graph feature embedders, and
+Gaussian Process regression models for uncertainty-aware fitness approximation.
+"""
+
+from neuroswarm.surrogates.base_surrogate import BaseSurrogateModel
+from neuroswarm.surrogates.gp_estimator import GaussianProcessSurrogate
+from neuroswarm.surrogates.graph_embedder import GraphEmbedder
+
+__all__ = [
+    "BaseSurrogateModel",
+    "GaussianProcessSurrogate",
+    "GraphEmbedder",
+]
