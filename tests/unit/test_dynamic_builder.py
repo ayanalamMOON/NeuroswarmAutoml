@@ -22,13 +22,16 @@ def test_resnet_block_forward():
     assert out.shape == (2, 16, 8, 8)
 
 
-@pytest.mark.parametrize("op_type", [
-    "conv3x3",
-    "conv5x5",
-    "depthwise_conv",
-    "resnet_block",
-    "identity",
-])
+@pytest.mark.parametrize(
+    "op_type",
+    [
+        "conv3x3",
+        "conv5x5",
+        "depthwise_conv",
+        "resnet_block",
+        "identity",
+    ],
+)
 def test_dynamic_op_nodes(op_type):
     """Ensure all dynamic operation types maintain channel and spatial dimensions."""
     node = DynamicOpNode(op_type=op_type, channels=16)

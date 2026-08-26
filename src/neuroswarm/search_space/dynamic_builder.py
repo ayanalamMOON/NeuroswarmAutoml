@@ -13,20 +13,27 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 # =====================================================================
 # Advanced Neural Primitives
 # =====================================================================
 
+
 class DepthwiseSeparableConv(nn.Module):
     """3x3 or 5x5 Depthwise Separable Convolution with BatchNorm and ReLU."""
 
-    def __init__(self, in_channels: int, out_channels: int, kernel_size: int = 3, stride: int = 1):
+    def __init__(
+        self, in_channels: int, out_channels: int, kernel_size: int = 3, stride: int = 1
+    ):
         super().__init__()
         padding = kernel_size // 2
         self.depthwise = nn.Conv2d(
-            in_channels, in_channels, kernel_size=kernel_size,
-            stride=stride, padding=padding, groups=in_channels, bias=False
+            in_channels,
+            in_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            groups=in_channels,
+            bias=False,
         )
         self.pointwise = nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False)
         self.bn = nn.BatchNorm2d(out_channels)
@@ -48,7 +55,7 @@ class SqueezeAndExcitation(nn.Module):
             nn.Linear(channels, reduced_dim, bias=False),
             nn.ReLU(inplace=True),
             nn.Linear(reduced_dim, channels, bias=False),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -66,38 +73,52 @@ class InvertedResidualBlock(nn.Module):
         out_channels: int,
         stride: int = 1,
         expand_ratio: int = 4,
-        use_se: bool = True
+        use_se: bool = True,
     ):
         super().__init__()
         self.stride = stride
-        self.use_residual = (stride == 1 and in_channels == out_channels)
+        self.use_residual = stride == 1 and in_channels == out_channels
         hidden_dim = int(in_channels * expand_ratio)
 
         layers: List[nn.Module] = []
         # Pointwise Expansion
         if expand_ratio != 1:
-            layers.extend([
-                nn.Conv2d(in_channels, hidden_dim, kernel_size=1, bias=False),
-                nn.BatchNorm2d(hidden_dim),
-                nn.ReLU6(inplace=True)
-            ])
+            layers.extend(
+                [
+                    nn.Conv2d(in_channels, hidden_dim, kernel_size=1, bias=False),
+                    nn.BatchNorm2d(hidden_dim),
+                    nn.ReLU6(inplace=True),
+                ]
+            )
 
         # Depthwise Convolution
-        layers.extend([
-            nn.Conv2d(hidden_dim, hidden_dim, kernel_size=3, stride=stride, padding=1, groups=hidden_dim, bias=False),
-            nn.BatchNorm2d(hidden_dim),
-            nn.ReLU6(inplace=True)
-        ])
+        layers.extend(
+            [
+                nn.Conv2d(
+                    hidden_dim,
+                    hidden_dim,
+                    kernel_size=3,
+                    stride=stride,
+                    padding=1,
+                    groups=hidden_dim,
+                    bias=False,
+                ),
+                nn.BatchNorm2d(hidden_dim),
+                nn.ReLU6(inplace=True),
+            ]
+        )
 
         # Squeeze-and-Excitation Attention
         if use_se:
             layers.append(SqueezeAndExcitation(hidden_dim, reduction=8))
 
         # Pointwise Linear Projection
-        layers.extend([
-            nn.Conv2d(hidden_dim, out_channels, kernel_size=1, bias=False),
-            nn.BatchNorm2d(out_channels)
-        ])
+        layers.extend(
+            [
+                nn.Conv2d(hidden_dim, out_channels, kernel_size=1, bias=False),
+                nn.BatchNorm2d(out_channels),
+            ]
+        )
 
         self.conv = nn.Sequential(*layers)
 
@@ -110,20 +131,33 @@ class InvertedResidualBlock(nn.Module):
 class ResNetBlock(nn.Module):
     """Standard Residual Convolutional Block with optional shortcut alignment."""
 
-    def __init__(self, in_channels: int, out_channels: Optional[int] = None, stride: int = 1):
+    def __init__(
+        self, in_channels: int, out_channels: Optional[int] = None, stride: int = 1
+    ):
         super().__init__()
         out_channels = out_channels or in_channels
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=False,
+        )
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(
+            out_channels, out_channels, kernel_size=3, stride=1, padding=1, bias=False
+        )
         self.bn2 = nn.BatchNorm2d(out_channels)
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_channels != out_channels:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(out_channels)
+                nn.Conv2d(
+                    in_channels, out_channels, kernel_size=1, stride=stride, bias=False
+                ),
+                nn.BatchNorm2d(out_channels),
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -137,6 +171,7 @@ class ResNetBlock(nn.Module):
 # Factory Dispatcher & Dynamic Op Wrapper
 # =====================================================================
 
+
 def build_primitive_op(op_name: str, in_ch: int, out_ch: int) -> nn.Module:
     """Instantiates neural primitives based on operation string identifier."""
     op_clean = op_name.lower().strip()
@@ -144,13 +179,13 @@ def build_primitive_op(op_name: str, in_ch: int, out_ch: int) -> nn.Module:
         return nn.Sequential(
             nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
     elif op_clean == "conv5x5":
         return nn.Sequential(
             nn.Conv2d(in_ch, out_ch, kernel_size=5, padding=2, bias=False),
             nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
     elif op_clean in ["depthwise_conv", "dw_conv3x3"]:
         return DepthwiseSeparableConv(in_ch, out_ch, kernel_size=3)
@@ -162,7 +197,7 @@ def build_primitive_op(op_name: str, in_ch: int, out_ch: int) -> nn.Module:
         return nn.Sequential(
             nn.Conv2d(in_ch, out_ch, kernel_size=1, bias=False),
             nn.BatchNorm2d(out_ch),
-            SqueezeAndExcitation(out_ch)
+            SqueezeAndExcitation(out_ch),
         )
     elif op_clean == "identity":
         if in_ch == out_ch:
@@ -173,7 +208,7 @@ def build_primitive_op(op_name: str, in_ch: int, out_ch: int) -> nn.Module:
         return nn.Sequential(
             nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(out_ch),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
 
 
@@ -192,6 +227,7 @@ class DynamicOpNode(nn.Module):
 # =====================================================================
 # Main Dynamic Graph Compiler
 # =====================================================================
+
 
 class DynamicNeuralNetwork(nn.Module):
     """
@@ -219,7 +255,7 @@ class DynamicNeuralNetwork(nn.Module):
         self.stem = nn.Sequential(
             nn.Conv2d(in_channels, base_channels, kernel_size=3, padding=1, bias=False),
             nn.BatchNorm2d(base_channels),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
 
         # Dynamic Node operations & multi-input aggregation projection layers
@@ -233,7 +269,9 @@ class DynamicNeuralNetwork(nn.Module):
             # Channel alignment projection for multi-parent concatenation
             if len(in_edges) > 1:
                 concat_ch = base_channels * len(in_edges)
-                self.merge_convs[str(node)] = nn.Conv2d(concat_ch, base_channels, kernel_size=1, bias=False)
+                self.merge_convs[str(node)] = nn.Conv2d(
+                    concat_ch, base_channels, kernel_size=1, bias=False
+                )
 
             self.node_ops[str(node)] = DynamicOpNode(op_type, base_channels)
 
@@ -241,7 +279,7 @@ class DynamicNeuralNetwork(nn.Module):
         self.head = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
-            nn.Linear(base_channels, num_classes)
+            nn.Linear(base_channels, num_classes),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

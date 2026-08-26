@@ -15,9 +15,11 @@ from neuroswarm.utils.pareto import get_pareto_front
 
 try:
     import matplotlib
+
     matplotlib.use("Agg")  # Non-interactive backend for server/CI environments
     import matplotlib.pyplot as plt
     import seaborn as sns
+
     HAS_PLOTTING = True
 except ImportError:
     HAS_PLOTTING = False
@@ -40,7 +42,9 @@ def plot_convergence_curve(
         show: Whether to display the plot interactively.
     """
     if not HAS_PLOTTING:
-        print("[Visualization] matplotlib/seaborn not available. Skipping convergence plot.")
+        print(
+            "[Visualization] matplotlib/seaborn not available. Skipping convergence plot."
+        )
         return
 
     if not history:
@@ -52,8 +56,22 @@ def plot_convergence_curve(
     mean_fitness = [h["mean_fitness"] for h in history]
 
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.plot(generations, best_fitness, "r-o", label="Best Fitness", linewidth=2.5, markersize=5)
-    ax.plot(generations, mean_fitness, "b--s", label="Mean Population Fitness", linewidth=1.5, markersize=4)
+    ax.plot(
+        generations,
+        best_fitness,
+        "r-o",
+        label="Best Fitness",
+        linewidth=2.5,
+        markersize=5,
+    )
+    ax.plot(
+        generations,
+        mean_fitness,
+        "b--s",
+        label="Mean Population Fitness",
+        linewidth=1.5,
+        markersize=4,
+    )
 
     ax.set_xlabel("Generation", fontsize=12, fontweight="bold")
     ax.set_ylabel("Fitness (Validation Accuracy)", fontsize=12, fontweight="bold")
@@ -109,13 +127,22 @@ def plot_pareto_front(
     else:
         param_counts = candidates_or_params
         if accuracies is None:
-            raise ValueError("accuracies must be provided when passing parameter count lists.")
+            raise ValueError(
+                "accuracies must be provided when passing parameter count lists."
+            )
         pareto_params, pareto_accs = [], []
 
     fig, ax = plt.subplots(figsize=(10, 6))
     scatter = ax.scatter(
-        param_counts, accuracies,
-        c=accuracies, cmap="viridis", s=70, edgecolors="black", linewidths=0.5, alpha=0.85, label="Explored Candidates"
+        param_counts,
+        accuracies,
+        c=accuracies,
+        cmap="viridis",
+        s=70,
+        edgecolors="black",
+        linewidths=0.5,
+        alpha=0.85,
+        label="Explored Candidates",
     )
     plt.colorbar(scatter, ax=ax, label="Validation Accuracy")
 
@@ -123,13 +150,35 @@ def plot_pareto_front(
     if pareto_params:
         sorted_pareto = sorted(zip(pareto_params, pareto_accs), key=lambda x: x[0])
         p_x, p_y = zip(*sorted_pareto)
-        ax.plot(p_x, p_y, color="crimson", linestyle="--", linewidth=2, label="Pareto Frontier")
-        ax.scatter(pareto_params, pareto_accs, c="crimson", s=100, edgecolors="black", zorder=5, label="Pareto Optimal")
+        ax.plot(
+            p_x,
+            p_y,
+            color="crimson",
+            linestyle="--",
+            linewidth=2,
+            label="Pareto Frontier",
+        )
+        ax.scatter(
+            pareto_params,
+            pareto_accs,
+            c="crimson",
+            s=100,
+            edgecolors="black",
+            zorder=5,
+            label="Pareto Optimal",
+        )
 
     # Annotate points
     if labels:
         for i, label in enumerate(labels):
-            ax.annotate(label, (param_counts[i], accuracies[i]), fontsize=7, alpha=0.7, xytext=(4, 4), textcoords="offset points")
+            ax.annotate(
+                label,
+                (param_counts[i], accuracies[i]),
+                fontsize=7,
+                alpha=0.7,
+                xytext=(4, 4),
+                textcoords="offset points",
+            )
 
     ax.set_xlabel("Parameter Count", fontsize=12, fontweight="bold")
     ax.set_ylabel("Validation Accuracy", fontsize=12, fontweight="bold")
@@ -191,7 +240,9 @@ def plot_dag_architecture(
     colors = [op_colors.get(dag.nodes[n].get("op", ""), "#bdc3c7") for n in dag.nodes()]
 
     nx.draw_networkx(
-        dag, pos, ax=ax,
+        dag,
+        pos,
+        ax=ax,
         labels=node_labels,
         node_color=colors,
         node_size=1600,
@@ -203,7 +254,9 @@ def plot_dag_architecture(
         width=1.8,
     )
 
-    ax.set_title("Neural Architecture Dynamic DAG Structure", fontsize=14, fontweight="bold")
+    ax.set_title(
+        "Neural Architecture Dynamic DAG Structure", fontsize=14, fontweight="bold"
+    )
     ax.axis("off")
 
     plt.tight_layout()

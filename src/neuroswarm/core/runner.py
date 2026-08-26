@@ -30,6 +30,7 @@ logger = logging.getLogger("neuroswarm.runner")
 # Ray distributed framework import wrapper
 try:
     import ray
+
     RAY_AVAILABLE = True
 except ImportError:
     RAY_AVAILABLE = False
@@ -49,8 +50,14 @@ def calculate_model_stats(
         nonlocal flops
         batch_size, input_channels, input_h, input_w = input_tok[0].shape
         output_channels, output_h, output_w = output_tok.shape[1:]
-        kernel_ops = module.kernel_size[0] * module.kernel_size[1] * (input_channels / module.groups)
-        flops += int(batch_size * output_channels * output_h * output_w * (2 * kernel_ops))
+        kernel_ops = (
+            module.kernel_size[0]
+            * module.kernel_size[1]
+            * (input_channels / module.groups)
+        )
+        flops += int(
+            batch_size * output_channels * output_h * output_w * (2 * kernel_ops)
+        )
 
     def linear_flop_hook(module, input_tok, output_tok):
         nonlocal flops
@@ -66,7 +73,11 @@ def calculate_model_stats(
 
     model.eval()
     if device is None:
-        device = next(model.parameters()).device if list(model.parameters()) else torch.device("cpu")
+        device = (
+            next(model.parameters()).device
+            if list(model.parameters())
+            else torch.device("cpu")
+        )
 
     dummy = torch.randn(*input_size, device=device)
     with torch.no_grad():
@@ -85,7 +96,7 @@ def train_and_evaluate_candidate(
     candidate: Candidate,
     epochs: int,
     config: Dict[str, Any],
-    device_str: Optional[str] = None
+    device_str: Optional[str] = None,
 ) -> Tuple[float, int, int]:
     """
     Builds, trains, and evaluates a dynamic PyTorch neural architecture with CUDA acceleration.
@@ -128,14 +139,18 @@ def train_and_evaluate_candidate(
             dag=candidate.graph,
             in_channels=in_channels,
             base_channels=base_channels,
-            num_classes=num_classes
+            num_classes=num_classes,
         ).to(device)
     except Exception as e:
-        logger.error(f"Failed to instantiate architecture for Candidate {candidate.candidate_id}: {e}")
+        logger.error(
+            f"Failed to instantiate architecture for Candidate {candidate.candidate_id}: {e}"
+        )
         return -1.0, 0, 0
 
     # Compute parameter count and FLOPs
-    param_count, flops = calculate_model_stats(model, input_size=(1, in_channels, 32, 32), device=device)
+    param_count, flops = calculate_model_stats(
+        model, input_size=(1, in_channels, 32, 32), device=device
+    )
 
     # DataLoaders setup
     train_loader = config.get("train_loader", None)
@@ -153,22 +168,19 @@ def train_and_evaluate_candidate(
             TensorDataset(x_train, y_train),
             batch_size=batch_size,
             shuffle=True,
-            pin_memory=pin_memory
+            pin_memory=pin_memory,
         )
         val_loader = DataLoader(
             TensorDataset(x_val, y_val),
             batch_size=batch_size,
             shuffle=False,
-            pin_memory=pin_memory
+            pin_memory=pin_memory,
         )
 
     # Loss function & Optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = AdamW(
-        model.parameters(),
-        lr=lr,
-        betas=(beta1, 0.999),
-        weight_decay=weight_decay
+        model.parameters(), lr=lr, betas=(beta1, 0.999), weight_decay=weight_decay
     )
 
     # AMP Scaler for GPU mixed precision
@@ -181,10 +193,7 @@ def train_and_evaluate_candidate(
     eta_min = lr * 1e-3
 
     scheduler = CosineAnnealingWarmRestarts(
-        optimizer,
-        T_0=T_0,
-        T_mult=T_mult,
-        eta_min=eta_min
+        optimizer, T_0=T_0, T_mult=T_mult, eta_min=eta_min
     )
 
     try:
@@ -235,23 +244,34 @@ def train_and_evaluate_candidate(
 
 
 if RAY_AVAILABLE:
+
     @ray.remote
     def _ray_eval_worker(
         candidate: Candidate,
         epochs: int,
         config: Dict[str, Any],
-        gpu_id: Optional[int] = None
+        gpu_id: Optional[int] = None,
     ) -> Tuple[str, float, int, int]:
         """Ray remote task wrapper for evaluating candidates across distributed CUDA nodes."""
-        device_str = f"cuda:{gpu_id}" if gpu_id is not None and torch.cuda.is_available() else "cpu"
-        val_acc, params, flops = train_and_evaluate_candidate(candidate, epochs, config, device_str)
+        device_str = (
+            f"cuda:{gpu_id}"
+            if gpu_id is not None and torch.cuda.is_available()
+            else "cpu"
+        )
+        val_acc, params, flops = train_and_evaluate_candidate(
+            candidate, epochs, config, device_str
+        )
         return candidate.candidate_id, val_acc, params, flops
 
 
-def _mp_worker_wrapper(args: Tuple[Candidate, int, Dict[str, Any], str]) -> Tuple[str, float, int, int]:
+def _mp_worker_wrapper(
+    args: Tuple[Candidate, int, Dict[str, Any], str],
+) -> Tuple[str, float, int, int]:
     """Multiprocessing process pool fallback wrapper with CUDA device placement."""
     candidate, epochs, config, device_str = args
-    val_acc, params, flops = train_and_evaluate_candidate(candidate, epochs, config, device_str)
+    val_acc, params, flops = train_and_evaluate_candidate(
+        candidate, epochs, config, device_str
+    )
     return candidate.candidate_id, val_acc, params, flops
 
 
@@ -265,7 +285,7 @@ class ParallelRunner:
         self,
         num_workers: int = 2,
         use_ray: bool = False,
-        gpus_per_worker: float = 1.0 if torch.cuda.is_available() else 0.0
+        gpus_per_worker: float = 1.0 if torch.cuda.is_available() else 0.0,
     ):
         self.num_workers = min(num_workers, mp.cpu_count())
         self.use_ray = use_ray and RAY_AVAILABLE
@@ -276,17 +296,25 @@ class ParallelRunner:
             if not ray.is_initialized():
                 logger.info("Initializing Ray cluster context...")
                 ray.init(ignore_reinit_error=True)
-            logger.info(f"ParallelRunner: Ray enabled with {self.num_workers} workers, {self.num_gpus} GPUs.")
+            logger.info(
+                f"ParallelRunner: Ray enabled with {self.num_workers} workers, {self.num_gpus} GPUs."
+            )
         else:
-            gpu_info = f"({self.num_gpus} CUDA GPU(s) available)" if self.num_gpus > 0 else "(CPU Mode)"
-            logger.info(f"ParallelRunner: Multiprocessing enabled with {self.num_workers} workers {gpu_info}.")
+            gpu_info = (
+                f"({self.num_gpus} CUDA GPU(s) available)"
+                if self.num_gpus > 0
+                else "(CPU Mode)"
+            )
+            logger.info(
+                f"ParallelRunner: Multiprocessing enabled with {self.num_workers} workers {gpu_info}."
+            )
 
     def evaluate_candidates(
         self,
         candidates: List[Candidate],
         epochs: int,
         config: Dict[str, Any],
-        eval_fn: Optional[Callable] = None
+        eval_fn: Optional[Callable] = None,
     ) -> List[Candidate]:
         """
         Evaluates candidates in parallel using CUDA-accelerated Ray tasks or multiprocessing workers.
@@ -299,7 +327,11 @@ class ParallelRunner:
         if self.use_ray:
             futures = []
             for i, cand in enumerate(candidates):
-                gpu_id = i % self.num_gpus if self.num_gpus > 0 and self.gpus_per_worker > 0 else None
+                gpu_id = (
+                    i % self.num_gpus
+                    if self.num_gpus > 0 and self.gpus_per_worker > 0
+                    else None
+                )
                 task = _ray_eval_worker.options(num_gpus=self.gpus_per_worker).remote(
                     cand, epochs, config, gpu_id
                 )
@@ -320,13 +352,15 @@ class ParallelRunner:
                 for cand_id, score, params, flops in tqdm(
                     pool.imap_unordered(_mp_worker_wrapper, tasks),
                     total=len(tasks),
-                    desc=f"Training Batch ({epochs} Epochs [CUDA/MP])"
+                    desc=f"Training Batch ({epochs} Epochs [CUDA/MP])",
                 ):
                     results_map[cand_id] = (score, params, flops)
         else:
             for i, cand in enumerate(candidates):
                 device_str = "cuda:0" if self.num_gpus > 0 else "cpu"
-                cand_id, score, params, flops = _mp_worker_wrapper((cand, epochs, config, device_str))
+                cand_id, score, params, flops = _mp_worker_wrapper(
+                    (cand, epochs, config, device_str)
+                )
                 results_map[cand_id] = (score, params, flops)
 
         # Update Candidates in place
@@ -348,13 +382,15 @@ class ParallelRunner:
         candidate: Candidate,
         epochs: int,
         config: Dict[str, Any],
-        device_str: Optional[str] = None
+        device_str: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Evaluates a single candidate and returns a dictionary of metrics."""
         if device_str is None:
             device_str = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-        val_acc, params, flops = train_and_evaluate_candidate(candidate, epochs, config, device_str)
+        val_acc, params, flops = train_and_evaluate_candidate(
+            candidate, epochs, config, device_str
+        )
         candidate.fitness = val_acc
         candidate.param_count = params
         candidate.flops = flops
@@ -367,7 +403,7 @@ class ParallelRunner:
             "accuracy": val_acc,
             "params": params,
             "flops": flops,
-            "latency_ms": candidate.latency_ms
+            "latency_ms": candidate.latency_ms,
         }
 
     def shutdown(self) -> None:
@@ -375,6 +411,7 @@ class ParallelRunner:
         if self.use_ray:
             try:
                 import ray
+
                 if ray.is_initialized():
                     logger.info("Shutting down Ray cluster context...")
                     ray.shutdown()

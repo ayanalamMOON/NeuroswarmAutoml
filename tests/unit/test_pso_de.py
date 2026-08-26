@@ -13,19 +13,23 @@ from neuroswarm.optimizers.pso_de_continuous import ContinuousPSODE
 def sample_population():
     """Generates a small synthetic candidate population."""
     pop = []
-    bounds = np.array([
-        [-4.0, -1.0],
-        [0.8, 0.999],
-        [-6.0, -2.0],
-        [4.0, 8.0],
-    ])
+    bounds = np.array(
+        [
+            [-4.0, -1.0],
+            [0.8, 0.999],
+            [-6.0, -2.0],
+            [4.0, 8.0],
+        ]
+    )
     for i in range(10):
-        pos = np.array([
-            np.random.uniform(bounds[0, 0], bounds[0, 1]),
-            np.random.uniform(bounds[1, 0], bounds[1, 1]),
-            np.random.uniform(bounds[2, 0], bounds[2, 1]),
-            np.random.uniform(bounds[3, 0], bounds[3, 1]),
-        ])
+        pos = np.array(
+            [
+                np.random.uniform(bounds[0, 0], bounds[0, 1]),
+                np.random.uniform(bounds[1, 0], bounds[1, 1]),
+                np.random.uniform(bounds[2, 0], bounds[2, 1]),
+                np.random.uniform(bounds[3, 0], bounds[3, 1]),
+            ]
+        )
         cand = Candidate(
             candidate_id=f"cand_{i}",
             hyperparams=pos,
@@ -49,19 +53,25 @@ def test_pso_de_step_updates_velocity_and_position(sample_population):
 
 def test_pso_de_enforces_bounds(sample_population):
     """Ensure candidate positions stay within search bounds after multiple steps."""
-    bounds = np.array([
-        [-4.0, -1.0],
-        [0.8, 0.999],
-        [-6.0, -2.0],
-        [4.0, 8.0],
-    ])
+    bounds = np.array(
+        [
+            [-4.0, -1.0],
+            [0.8, 0.999],
+            [-6.0, -2.0],
+            [4.0, 8.0],
+        ]
+    )
     pso = ContinuousPSODE(population_size=len(sample_population), bounds=bounds)
 
     for gen in range(1, 20):
         sample_population = pso.step(sample_population, current_gen=gen, max_gens=20)
         for c in sample_population:
-            assert np.all(c.hyperparams >= bounds[:, 0] - 1e-7), f"Lower bound violated: {c.hyperparams}"
-            assert np.all(c.hyperparams <= bounds[:, 1] + 1e-7), f"Upper bound violated: {c.hyperparams}"
+            assert np.all(
+                c.hyperparams >= bounds[:, 0] - 1e-7
+            ), f"Lower bound violated: {c.hyperparams}"
+            assert np.all(
+                c.hyperparams <= bounds[:, 1] + 1e-7
+            ), f"Upper bound violated: {c.hyperparams}"
 
 
 def test_pso_de_stagnation_triggers_de():
@@ -86,4 +96,3 @@ def test_pso_de_stagnation_triggers_de():
 
     evolved = pso.step(pop, current_gen=1, max_gens=5)
     assert len(evolved) == 5
-

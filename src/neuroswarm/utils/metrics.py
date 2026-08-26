@@ -51,8 +51,14 @@ def estimate_flops(
         if isinstance(module, nn.Conv2d):
             batch_size = input[0].shape[0]
             out_h, out_w = output.shape[2], output.shape[3]
-            kernel_ops = module.kernel_size[0] * module.kernel_size[1] * (module.in_channels // module.groups)
-            total_flops += 2 * kernel_ops * module.out_channels * out_h * out_w * batch_size
+            kernel_ops = (
+                module.kernel_size[0]
+                * module.kernel_size[1]
+                * (module.in_channels // module.groups)
+            )
+            total_flops += (
+                2 * kernel_ops * module.out_channels * out_h * out_w * batch_size
+            )
         elif isinstance(module, nn.Linear):
             batch_size = input[0].shape[0] if input[0].dim() > 1 else 1
             total_flops += 2 * module.in_features * module.out_features * batch_size
@@ -63,7 +69,11 @@ def estimate_flops(
 
     model.eval()
     if device is None:
-        device = next(model.parameters()).device if list(model.parameters()) else torch.device("cpu")
+        device = (
+            next(model.parameters()).device
+            if list(model.parameters())
+            else torch.device("cpu")
+        )
     else:
         device = torch.device(device)
 
@@ -97,7 +107,11 @@ def compute_accuracy(
     """
     model.eval()
     if device is None:
-        device = next(model.parameters()).device if list(model.parameters()) else torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        device = (
+            next(model.parameters()).device
+            if list(model.parameters())
+            else torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        )
     else:
         device = torch.device(device)
 

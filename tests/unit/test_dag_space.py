@@ -65,4 +65,3 @@ def test_repair_dag_connects_orphans(dag_space):
     assert dag_space.validate_dag(repaired)
     for n in repaired.nodes():
         assert repaired.in_degree(n) + repaired.out_degree(n) > 0
-

@@ -17,11 +17,14 @@ import numpy as np
 # Dynamically link PyTorch's CUDA DLLs to Windows PATH before ONNX Runtime imports
 try:
     import torch
+
     if os.name == "nt" and torch.cuda.is_available():
         torch_lib_path = os.path.join(os.path.dirname(torch.__file__), "lib")
         if os.path.exists(torch_lib_path):
             os.add_dll_directory(torch_lib_path)
-            os.environ["PATH"] = torch_lib_path + os.path.pathsep + os.environ.get("PATH", "")
+            os.environ["PATH"] = (
+                torch_lib_path + os.path.pathsep + os.environ.get("PATH", "")
+            )
 except ImportError:
     pass
 
@@ -38,7 +41,7 @@ def benchmark_onnx_model(
     batch_size: int = 1,
     iterations: int = 1000,
     warmup: int = 100,
-    device: str = "cuda"
+    device: str = "cuda",
 ) -> Dict[str, Any]:
     """
     Measures microsecond-level ONNX inference performance across CUDA and CPU providers.
@@ -49,15 +52,21 @@ def benchmark_onnx_model(
 
     # Determine execution provider priorities
     available_providers = ort.get_available_providers()
-    if device.lower() in ("cuda", "gpu") and "CUDAExecutionProvider" in available_providers:
+    if (
+        device.lower() in ("cuda", "gpu")
+        and "CUDAExecutionProvider" in available_providers
+    ):
         providers = [
-            ("CUDAExecutionProvider", {
-                "device_id": 0,
-                "arena_extend_strategy": "kNextPowerOfTwo",
-                "gpu_mem_limit": 2 * 1024 * 1024 * 1024,
-                "cudnn_conv_algo_search": "EXHAUSTIVE",
-            }),
-            "CPUExecutionProvider"
+            (
+                "CUDAExecutionProvider",
+                {
+                    "device_id": 0,
+                    "arena_extend_strategy": "kNextPowerOfTwo",
+                    "gpu_mem_limit": 2 * 1024 * 1024 * 1024,
+                    "cudnn_conv_algo_search": "EXHAUSTIVE",
+                },
+            ),
+            "CPUExecutionProvider",
         ]
     else:
         providers = ["CPUExecutionProvider"]
@@ -152,11 +161,25 @@ def benchmark_onnx_model(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="ONNX Latency and Throughput Profiler")
-    parser.add_argument("--model", type=str, required=True, help="Path to exported .onnx model file")
-    parser.add_argument("--batch_size", type=int, default=1, help="Inference batch size")
-    parser.add_argument("--iterations", type=int, default=1000, help="Number of benchmark iterations")
-    parser.add_argument("--warmup", type=int, default=100, help="Warmup runs before timing")
-    parser.add_argument("--device", type=str, default="cuda", choices=["cuda", "cpu"], help="Execution device target")
+    parser.add_argument(
+        "--model", type=str, required=True, help="Path to exported .onnx model file"
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=1, help="Inference batch size"
+    )
+    parser.add_argument(
+        "--iterations", type=int, default=1000, help="Number of benchmark iterations"
+    )
+    parser.add_argument(
+        "--warmup", type=int, default=100, help="Warmup runs before timing"
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda",
+        choices=["cuda", "cpu"],
+        help="Execution device target",
+    )
     return parser.parse_args()
 
 

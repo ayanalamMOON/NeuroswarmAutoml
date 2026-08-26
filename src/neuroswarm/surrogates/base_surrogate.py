@@ -44,7 +44,9 @@ class BaseSurrogateModel(ABC):
         """
         pass
 
-    def predict_batch(self, candidates: List[Candidate]) -> Tuple[np.ndarray, np.ndarray]:
+    def predict_batch(
+        self, candidates: List[Candidate]
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Predicts performance mean and variance across a batch of candidates.
 

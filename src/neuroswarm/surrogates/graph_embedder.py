@@ -36,7 +36,9 @@ class GraphEmbedder:
         self.available_ops = available_ops or self.DEFAULT_OPS
         self.max_nodes = max_nodes
         self.spectral_k = spectral_k
-        self.op_to_idx: Dict[str, int] = {op: i for i, op in enumerate(self.available_ops)}
+        self.op_to_idx: Dict[str, int] = {
+            op: i for i, op in enumerate(self.available_ops)
+        }
 
     @property
     def embedding_dim(self) -> int:
@@ -74,12 +76,15 @@ class GraphEmbedder:
         hyperparam_feats = np.copy(candidate.hyperparams)
 
         # Concatenate all feature sub-vectors into a single 1D vector
-        return np.concatenate([
-            topological_feats,
-            op_histogram,
-            spectral_feats,
-            hyperparam_feats,
-        ], dtype=np.float64)
+        return np.concatenate(
+            [
+                topological_feats,
+                op_histogram,
+                spectral_feats,
+                hyperparam_feats,
+            ],
+            dtype=np.float64,
+        )
 
     def batch_extract_features(self, candidates: List[Candidate]) -> np.ndarray:
         """
@@ -88,7 +93,9 @@ class GraphEmbedder:
         if not candidates:
             return np.empty((0, self.embedding_dim), dtype=np.float64)
 
-        return np.array([self.extract_features(c) for c in candidates], dtype=np.float64)
+        return np.array(
+            [self.extract_features(c) for c in candidates], dtype=np.float64
+        )
 
     def _extract_topological_features(self, g: nx.DiGraph) -> np.ndarray:
         """Extracts structural invariants from the graph."""
@@ -112,16 +119,19 @@ class GraphEmbedder:
         except Exception:
             longest_path_len = 0.0
 
-        return np.array([
-            float(num_nodes),
-            float(num_edges),
-            float(density),
-            mean_in,
-            max_in,
-            mean_out,
-            max_out,
-            longest_path_len,
-        ], dtype=np.float64)
+        return np.array(
+            [
+                float(num_nodes),
+                float(num_edges),
+                float(density),
+                mean_in,
+                max_in,
+                mean_out,
+                max_out,
+                longest_path_len,
+            ],
+            dtype=np.float64,
+        )
 
     def _extract_operation_histogram(self, g: nx.DiGraph) -> np.ndarray:
         """Computes normalized operation frequency distribution across DAG nodes."""

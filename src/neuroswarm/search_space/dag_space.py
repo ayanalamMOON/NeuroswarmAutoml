@@ -96,14 +96,18 @@ class DAGSearchSpace:
         # 2. Connect orphaned internal nodes safely
         for n in nodes:
             if n != source and g.in_degree(n) == 0:
-                candidates = [prev for prev in nodes if prev < n and not nx.has_path(g, n, prev)]
+                candidates = [
+                    prev for prev in nodes if prev < n and not nx.has_path(g, n, prev)
+                ]
                 if candidates:
                     g.add_edge(random.choice(candidates), n)
                 elif not nx.has_path(g, n, source):
                     g.add_edge(source, n)
 
             if n != sink and g.out_degree(n) == 0:
-                candidates = [nxt for nxt in nodes if nxt > n and not nx.has_path(g, nxt, n)]
+                candidates = [
+                    nxt for nxt in nodes if nxt > n and not nx.has_path(g, nxt, n)
+                ]
                 if candidates:
                     g.add_edge(n, random.choice(candidates))
                 elif not nx.has_path(g, sink, n):

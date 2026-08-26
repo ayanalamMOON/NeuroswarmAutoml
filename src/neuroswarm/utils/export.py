@@ -39,7 +39,11 @@ class ModelExporter:
         export_path = self.output_dir / filename
         model.eval()
 
-        device = next(model.parameters()).device if list(model.parameters()) else torch.device("cpu")
+        device = (
+            next(model.parameters()).device
+            if list(model.parameters())
+            else torch.device("cpu")
+        )
         dummy_input = torch.randn(*input_shape, device=device)
 
         if dynamic_axes is None:
@@ -81,7 +85,11 @@ class ModelExporter:
         Verifies numerical equivalence between PyTorch model and exported ONNX runtime inference.
         """
         model.eval()
-        device = next(model.parameters()).device if list(model.parameters()) else torch.device("cpu")
+        device = (
+            next(model.parameters()).device
+            if list(model.parameters())
+            else torch.device("cpu")
+        )
         dummy_input = torch.randn(*input_shape, device=device)
 
         # 1. Compute PyTorch baseline output
@@ -91,11 +99,14 @@ class ModelExporter:
         # 2. Check ONNX graph structure
         try:
             import onnx
+
             onnx_model = onnx.load(onnx_path)
             onnx.checker.check_model(onnx_model)
             logger.info("ONNX model structure validation: PASSED")
         except ImportError:
-            logger.warning("Package 'onnx' not installed. Skipping structural schema check.")
+            logger.warning(
+                "Package 'onnx' not installed. Skipping structural schema check."
+            )
         except Exception as e:
             logger.error(f"ONNX schema validation failed: {e}")
             return False
@@ -103,7 +114,10 @@ class ModelExporter:
         # 3. Check ONNX Runtime execution
         try:
             import onnxruntime as ort
-            ort_session = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
+
+            ort_session = ort.InferenceSession(
+                onnx_path, providers=["CPUExecutionProvider"]
+            )
             ort_inputs = {ort_session.get_inputs()[0].name: dummy_input.cpu().numpy()}
             ort_outputs = ort_session.run(None, ort_inputs)[0]
 
@@ -111,7 +125,9 @@ class ModelExporter:
             logger.info("ONNX Runtime numerical equivalence test: PASSED")
             return True
         except ImportError:
-            logger.warning("Package 'onnxruntime' not installed. Skipping numerical equivalence test.")
+            logger.warning(
+                "Package 'onnxruntime' not installed. Skipping numerical equivalence test."
+            )
             return True
         except AssertionError as e:
             logger.error(f"Numerical discrepancy between PyTorch and ONNX outputs: {e}")
@@ -131,7 +147,11 @@ class ModelExporter:
         """
         export_path = self.output_dir / filename
         model.eval()
-        device = next(model.parameters()).device if list(model.parameters()) else torch.device("cpu")
+        device = (
+            next(model.parameters()).device
+            if list(model.parameters())
+            else torch.device("cpu")
+        )
         dummy_input = torch.randn(*input_shape, device=device)
 
         try:

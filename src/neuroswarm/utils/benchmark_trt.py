@@ -37,6 +37,7 @@ if os.name == "nt":
 
 try:
     import tensorrt as trt
+
     HAS_TRT = True
 except ImportError:
     HAS_TRT = False
@@ -54,11 +55,15 @@ class TensorRTProfiler:
 
     def __init__(self, engine_path: str):
         if not HAS_TRT:
-            raise RuntimeError("TensorRT Python bindings not installed. Run 'pip install tensorrt tensorrt-cu12'.")
+            raise RuntimeError(
+                "TensorRT Python bindings not installed. Run 'pip install tensorrt tensorrt-cu12'."
+            )
 
         self.engine_path = Path(engine_path)
         if not self.engine_path.exists():
-            raise FileNotFoundError(f"TensorRT engine not found: {self.engine_path.resolve()}")
+            raise FileNotFoundError(
+                f"TensorRT engine not found: {self.engine_path.resolve()}"
+            )
 
         self.logger = trt.Logger(trt.Logger.WARNING)
         self.runtime = trt.Runtime(self.logger)
@@ -99,7 +104,7 @@ class TensorRTProfiler:
         input_shape: Tuple[int, ...] = (3, 32, 32),
         num_classes: int = 100,
         warmup: int = 100,
-        iterations: int = 1000
+        iterations: int = 1000,
     ) -> Dict[str, float]:
         """Runs CUDA event-based benchmark profiling on the TensorRT engine."""
         device = torch.device("cuda")
@@ -107,7 +112,9 @@ class TensorRTProfiler:
 
         # Allocate PyTorch CUDA memory for inputs and outputs
         dummy_input = torch.randn(*full_input_shape, device=device, dtype=torch.float32)
-        dummy_output = torch.empty((batch_size, num_classes), device=device, dtype=torch.float32)
+        dummy_output = torch.empty(
+            (batch_size, num_classes), device=device, dtype=torch.float32
+        )
 
         # Configure dynamic shapes & addresses in TRT context
         for inp_name in self.input_names:
@@ -127,7 +134,9 @@ class TensorRTProfiler:
                 self.context.execute_async_v3(stream.cuda_stream)
             else:
                 bindings = [dummy_input.data_ptr(), dummy_output.data_ptr()]
-                self.context.execute_async_v2(bindings=bindings, stream_handle=stream.cuda_stream)
+                self.context.execute_async_v2(
+                    bindings=bindings, stream_handle=stream.cuda_stream
+                )
 
         # Warmup Phase
         for _ in range(warmup):
@@ -168,12 +177,25 @@ class TensorRTProfiler:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="NeuroSwarm-AutoML TensorRT Hardware Profiler")
-    parser.add_argument("--engine", type=str, default="./outputs_trt/winner_4f5974bd.engine", help="Path to .engine binary")
-    parser.add_argument("--batch_size", type=int, default=32, help="Inference batch size")
-    parser.add_argument("--num_classes", type=int, default=100, help="Output classification classes")
+    parser = argparse.ArgumentParser(
+        description="NeuroSwarm-AutoML TensorRT Hardware Profiler"
+    )
+    parser.add_argument(
+        "--engine",
+        type=str,
+        default="./outputs_trt/winner_4f5974bd.engine",
+        help="Path to .engine binary",
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=32, help="Inference batch size"
+    )
+    parser.add_argument(
+        "--num_classes", type=int, default=100, help="Output classification classes"
+    )
     parser.add_argument("--warmup", type=int, default=100, help="Warmup iterations")
-    parser.add_argument("--iterations", type=int, default=1000, help="Benchmark iterations")
+    parser.add_argument(
+        "--iterations", type=int, default=1000, help="Benchmark iterations"
+    )
     return parser.parse_args()
 
 
@@ -192,7 +214,7 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         num_classes=args.num_classes,
         warmup=args.warmup,
-        iterations=args.iterations
+        iterations=args.iterations,
     )
 
     print("\n--- TensorRT Engine Execution Results ---")

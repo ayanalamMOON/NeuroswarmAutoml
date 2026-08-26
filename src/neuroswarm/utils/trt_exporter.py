@@ -39,12 +39,14 @@ if os.name == "nt":
 # Conditional TensorRT & ONNX Runtime Imports
 try:
     import tensorrt as trt
+
     HAS_TRT = True
 except ImportError:
     HAS_TRT = False
 
 try:
     import onnxruntime as ort
+
     HAS_ORT = True
 except ImportError:
     HAS_ORT = False
@@ -76,7 +78,7 @@ class TensorRTExporter:
         onnx_path: str,
         engine_path: str,
         use_fp16: bool = True,
-        max_workspace_gb: float = 2.0
+        max_workspace_gb: float = 2.0,
     ) -> bool:
         """
         Builds TensorRT engine using the native TensorRT Python API.
@@ -91,7 +93,9 @@ class TensorRTExporter:
 
         # Handle explicit batch flag removal across TRT versions
         network_flags = 0
-        if hasattr(trt, "NetworkDefinitionCreationFlag") and hasattr(trt.NetworkDefinitionCreationFlag, "EXPLICIT_BATCH"):
+        if hasattr(trt, "NetworkDefinitionCreationFlag") and hasattr(
+            trt.NetworkDefinitionCreationFlag, "EXPLICIT_BATCH"
+        ):
             network_flags = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 
         network = builder.create_network(network_flags)
@@ -99,7 +103,7 @@ class TensorRTExporter:
         parser = trt.OnnxParser(network, TRT_LOGGER)
 
         # Set workspace memory limit safely
-        workspace_bytes = int(max_workspace_gb * (1024 ** 3))
+        workspace_bytes = int(max_workspace_gb * (1024**3))
         if hasattr(config, "set_memory_pool_limit") and hasattr(trt, "MemoryPoolType"):
             config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, workspace_bytes)
         elif hasattr(config, "max_workspace_size"):
@@ -120,11 +124,19 @@ class TensorRTExporter:
 
             # Map dynamic batch (-1) or dynamic dims to concrete ranges
             min_shape = tuple(1 if dim <= 0 else dim for dim in shape)
-            opt_shape = tuple(32 if idx == 0 and dim <= 0 else (1 if dim <= 0 else dim) for idx, dim in enumerate(shape))
-            max_shape = tuple(128 if idx == 0 and dim <= 0 else (1 if dim <= 0 else dim) for idx, dim in enumerate(shape))
+            opt_shape = tuple(
+                32 if idx == 0 and dim <= 0 else (1 if dim <= 0 else dim)
+                for idx, dim in enumerate(shape)
+            )
+            max_shape = tuple(
+                128 if idx == 0 and dim <= 0 else (1 if dim <= 0 else dim)
+                for idx, dim in enumerate(shape)
+            )
 
             profile.set_shape(input_tensor.name, min_shape, opt_shape, max_shape)
-            logger.info(f"Configured TRT Input Profile '{input_tensor.name}': min={min_shape}, opt={opt_shape}, max={max_shape}")
+            logger.info(
+                f"Configured TRT Input Profile '{input_tensor.name}': min={min_shape}, opt={opt_shape}, max={max_shape}"
+            )
 
         config.add_optimization_profile(profile)
 
@@ -151,16 +163,15 @@ class TensorRTExporter:
         return True
 
     def export_via_onnxruntime_ep(
-        self,
-        onnx_path: str,
-        engine_path: str,
-        use_fp16: bool = True
+        self, onnx_path: str, engine_path: str, use_fp16: bool = True
     ) -> bool:
         """Fallback engine compilation via ONNX Runtime TensorRT Execution Provider."""
         if not HAS_ORT:
             return False
 
-        logger.info("Attempting TensorRT engine compilation via ONNX Runtime TRT Provider...")
+        logger.info(
+            "Attempting TensorRT engine compilation via ONNX Runtime TRT Provider..."
+        )
         try:
             available_providers = ort.get_available_providers()
             trt_ep_name = None
@@ -170,7 +181,9 @@ class TensorRTExporter:
                     break
 
             if not trt_ep_name:
-                logger.warning("TensorRTExecutionProvider not registered in available ORT providers.")
+                logger.warning(
+                    "TensorRTExecutionProvider not registered in available ORT providers."
+                )
                 return False
 
             trt_options = {
@@ -179,7 +192,11 @@ class TensorRTExporter:
                 "trt_engine_cache_enable": True,
                 "trt_engine_cache_path": str(self.output_dir),
             }
-            providers = [(trt_ep_name, trt_options), "CUDAExecutionProvider", "CPUExecutionProvider"]
+            providers = [
+                (trt_ep_name, trt_options),
+                "CUDAExecutionProvider",
+                "CPUExecutionProvider",
+            ]
             session = ort.InferenceSession(onnx_path, providers=providers)
 
             # Trigger dummy forward pass to force engine compilation and disk caching
@@ -187,17 +204,16 @@ class TensorRTExporter:
             dummy_input = {inp_meta.name: np.zeros((1, 3, 32, 32), dtype=np.float32)}
             session.run(None, dummy_input)
 
-            logger.info(f"ONNX Runtime TensorRT engine compiled and cached in {self.output_dir}")
+            logger.info(
+                f"ONNX Runtime TensorRT engine compiled and cached in {self.output_dir}"
+            )
             return True
         except Exception as e:
             logger.warning(f"ONNX Runtime TensorRT compilation failed: {e}")
             return False
 
     def export_via_trtexec_cli(
-        self,
-        onnx_path: str,
-        engine_path: str,
-        use_fp16: bool = True
+        self, onnx_path: str, engine_path: str, use_fp16: bool = True
     ) -> bool:
         """Fallback build method using NVIDIA trtexec CLI binary."""
         cmd = [
@@ -211,7 +227,13 @@ class TensorRTExporter:
 
         try:
             logger.info(f"Executing CLI fallback: {' '.join(cmd)}")
-            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+            subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+            )
             logger.info("trtexec engine compilation complete.")
             return True
         except (subprocess.CalledProcessError, FileNotFoundError) as e:
@@ -219,10 +241,7 @@ class TensorRTExporter:
             return False
 
     def convert_onnx_to_engine(
-        self,
-        onnx_path: str,
-        use_fp16: bool = True,
-        filename: Optional[str] = None
+        self, onnx_path: str, use_fp16: bool = True, filename: Optional[str] = None
     ) -> Optional[str]:
         """Main conversion workflow trying Python API -> ORT TRT Provider -> trtexec CLI."""
         inp_path = Path(onnx_path)
@@ -232,24 +251,40 @@ class TensorRTExporter:
         out_name = filename or f"{inp_path.stem}.engine"
         out_path = self.output_dir / out_name
 
-        logger.info(f"Starting TensorRT Compilation: {inp_path.name} -> {out_name} (FP16: {use_fp16})...")
+        logger.info(
+            f"Starting TensorRT Compilation: {inp_path.name} -> {out_name} (FP16: {use_fp16})..."
+        )
 
         success = False
         if HAS_TRT:
             try:
-                success = self.export_via_python_api(str(inp_path), str(out_path), use_fp16=use_fp16)
+                success = self.export_via_python_api(
+                    str(inp_path), str(out_path), use_fp16=use_fp16
+                )
             except Exception as e:
-                logger.warning(f"Python TensorRT API build failed ({e}). Attempting fallbacks...")
+                logger.warning(
+                    f"Python TensorRT API build failed ({e}). Attempting fallbacks..."
+                )
 
         if not success:
-            success = self.export_via_onnxruntime_ep(str(inp_path), str(out_path), use_fp16=use_fp16)
+            success = self.export_via_onnxruntime_ep(
+                str(inp_path), str(out_path), use_fp16=use_fp16
+            )
 
         if not success:
-            success = self.export_via_trtexec_cli(str(inp_path), str(out_path), use_fp16=use_fp16)
+            success = self.export_via_trtexec_cli(
+                str(inp_path), str(out_path), use_fp16=use_fp16
+            )
 
         if success and (out_path.exists() or list(self.output_dir.glob("*.engine"))):
-            created_engine = out_path if out_path.exists() else list(self.output_dir.glob("*.engine"))[0]
-            logger.info(f"TensorRT Engine Export Complete: {created_engine.name} ({get_file_size_mb(created_engine):.2f} MB)")
+            created_engine = (
+                out_path
+                if out_path.exists()
+                else list(self.output_dir.glob("*.engine"))[0]
+            )
+            logger.info(
+                f"TensorRT Engine Export Complete: {created_engine.name} ({get_file_size_mb(created_engine):.2f} MB)"
+            )
             return str(created_engine)
 
         logger.error("TensorRT export failed across all conversion backends.")
@@ -257,10 +292,24 @@ class TensorRTExporter:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="NeuroSwarm-AutoML TensorRT Engine Exporter")
-    parser.add_argument("--onnx", type=str, required=True, help="Path to input .onnx model binary")
-    parser.add_argument("--fp16", action="store_true", default=True, help="Enable FP16 Tensor Core acceleration")
-    parser.add_argument("--output_dir", type=str, default="./outputs_trt", help="Directory to save serialized .engine file")
+    parser = argparse.ArgumentParser(
+        description="NeuroSwarm-AutoML TensorRT Engine Exporter"
+    )
+    parser.add_argument(
+        "--onnx", type=str, required=True, help="Path to input .onnx model binary"
+    )
+    parser.add_argument(
+        "--fp16",
+        action="store_true",
+        default=True,
+        help="Enable FP16 Tensor Core acceleration",
+    )
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="./outputs_trt",
+        help="Directory to save serialized .engine file",
+    )
     return parser.parse_args()
 
 

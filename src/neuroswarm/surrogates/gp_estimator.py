@@ -23,14 +23,16 @@ class GaussianProcessSurrogate(BaseSurrogateModel):
 
     def __init__(self, alpha: float = 1e-6, n_restarts_optimizer: int = 5):
         # Radial Basis Function (RBF) kernel with noise term for observation variances
-        kernel = C(1.0, (1e-3, 1e3)) * RBF(length_scale=1.0, length_scale_bounds=(1e-2, 1e2)) + WhiteKernel(noise_level=1e-3)
+        kernel = C(1.0, (1e-3, 1e3)) * RBF(
+            length_scale=1.0, length_scale_bounds=(1e-2, 1e2)
+        ) + WhiteKernel(noise_level=1e-3)
 
         self.gp = GaussianProcessRegressor(
             kernel=kernel,
             alpha=alpha,
             n_restarts_optimizer=n_restarts_optimizer,
             normalize_y=True,
-            random_state=42
+            random_state=42,
         )
         self.scaler = StandardScaler()
         self.embedder = GraphEmbedder()
@@ -45,13 +47,17 @@ class GaussianProcessSurrogate(BaseSurrogateModel):
         """
         Trains the Gaussian Process on evaluated ground-truth candidates.
         """
-        ground_truth_cands = [c for c in candidates if c.is_ground_truth and c.fitness != float("-inf")]
+        ground_truth_cands = [
+            c for c in candidates if c.is_ground_truth and c.fitness != float("-inf")
+        ]
 
         if len(ground_truth_cands) < 3:
             # Not enough samples to fit a stable GP kernel
             return
 
-        X_raw = np.array([self.embedder.extract_features(c) for c in ground_truth_cands])
+        X_raw = np.array(
+            [self.embedder.extract_features(c) for c in ground_truth_cands]
+        )
         y = np.array([c.fitness for c in ground_truth_cands])
 
         # Standardize input vector dimensions

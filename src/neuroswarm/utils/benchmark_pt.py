@@ -14,7 +14,7 @@ def benchmark_pytorch_model(
     batch_size: int = 32,
     iterations: int = 1000,
     warmup: int = 100,
-    device_str: str = "cuda"
+    device_str: str = "cuda",
 ) -> None:
     device = torch.device(device_str if torch.cuda.is_available() else "cpu")
     path = Path(model_path)
@@ -70,7 +70,12 @@ def benchmark_pytorch_model(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, required=True, help="Path to exported .pt TorchScript model")
+    parser.add_argument(
+        "--model",
+        type=str,
+        required=True,
+        help="Path to exported .pt TorchScript model",
+    )
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--iterations", type=int, default=1000)
     parser.add_argument("--warmup", type=int, default=100)

@@ -16,7 +16,9 @@ class BaseOptimizer(ABC):
         self.population_size = population_size
 
     @abstractmethod
-    def step(self, population: List[Candidate], current_gen: int, max_gens: int) -> List[Candidate]:
+    def step(
+        self, population: List[Candidate], current_gen: int, max_gens: int
+    ) -> List[Candidate]:
         """
         Advances the population by one evolutionary generation / velocity iteration.
 

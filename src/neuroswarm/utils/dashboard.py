@@ -19,6 +19,7 @@ from typing import Dict, Any, List, Optional, Tuple
 
 import numpy as np
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -38,7 +39,7 @@ logger = logging.getLogger("neuroswarm.dashboard")
 app = FastAPI(
     title="NeuroSwarm Telemetry & Live Dashboard",
     description="Real-Time Streaming Engine & Pareto Architecture Viewer",
-    version="1.1.0"
+    version="1.1.0",
 )
 
 app.add_middleware(
@@ -64,6 +65,7 @@ def set_global_telemetry(telemetry_mgr: SearchTelemetryManager):
 # =====================================================================
 # REST & WebSocket Routes
 # =====================================================================
+
 
 @app.get("/api/telemetry/history")
 async def get_telemetry_history():
@@ -102,11 +104,12 @@ async def websocket_telemetry_endpoint(websocket: WebSocket):
 # Live Data Sampler & Plot Generators
 # =====================================================================
 
+
 def sample_live_vram() -> Tuple[float, float]:
     """Queries instantaneous CUDA VRAM allocated memory in MB."""
     if torch.cuda.is_available():
-        allocated_mb = torch.cuda.memory_allocated(0) / (1024 ** 2)
-        reserved_mb = torch.cuda.memory_reserved(0) / (1024 ** 2)
+        allocated_mb = torch.cuda.memory_allocated(0) / (1024**2)
+        reserved_mb = torch.cuda.memory_reserved(0) / (1024**2)
     else:
         # Fallback pseudo-wave for CPU testing
         allocated_mb = 16.2 + 5.0 * np.sin(time.time())
@@ -165,8 +168,17 @@ def fetch_live_dashboard_data():
     ax2.set_facecolor("#1F2937")
 
     # Panel 1: Evolutionary Accuracy Convergence
-    ax1.plot(gens, fitness, marker="o", color="#0284C7", linewidth=2.5, label="Global Best Acc")
-    ax1.set_title("Search Convergence (Accuracy)", color="#F9FAFB", fontsize=10, fontweight="bold")
+    ax1.plot(
+        gens,
+        fitness,
+        marker="o",
+        color="#0284C7",
+        linewidth=2.5,
+        label="Global Best Acc",
+    )
+    ax1.set_title(
+        "Search Convergence (Accuracy)", color="#F9FAFB", fontsize=10, fontweight="bold"
+    )
     ax1.set_xlabel("Generation", color="#9CA3AF", fontsize=8)
     ax1.tick_params(colors="#9CA3AF", labelsize=8)
     ax1.grid(True, linestyle="--", alpha=0.3)
@@ -174,9 +186,20 @@ def fetch_live_dashboard_data():
 
     # Panel 2: Real-Time Rolling CUDA VRAM Waveform (Last 60 Seconds)
     x_indices = list(range(len(live_vram_history)))
-    ax2.plot(x_indices, list(live_vram_history), color="#76B900", linewidth=2.0, label="Allocated VRAM (MB)")
+    ax2.plot(
+        x_indices,
+        list(live_vram_history),
+        color="#76B900",
+        linewidth=2.0,
+        label="Allocated VRAM (MB)",
+    )
     ax2.fill_between(x_indices, list(live_vram_history), color="#76B900", alpha=0.2)
-    ax2.set_title(f"Live CUDA VRAM: {current_vram:.1f} MB (Reserved: {reserved_vram:.1f} MB)", color="#F9FAFB", fontsize=10, fontweight="bold")
+    ax2.set_title(
+        f"Live CUDA VRAM: {current_vram:.1f} MB (Reserved: {reserved_vram:.1f} MB)",
+        color="#F9FAFB",
+        fontsize=10,
+        fontweight="bold",
+    )
     ax2.set_xlabel("Time Ticker (Seconds)", color="#9CA3AF", fontsize=8)
     ax2.set_ylabel("Memory (MB)", color="#9CA3AF", fontsize=8)
     ax2.tick_params(colors="#9CA3AF", labelsize=8)
@@ -205,11 +228,16 @@ def fetch_live_dashboard_data():
 # Gradio UI with Auto-Updating Timer
 # =====================================================================
 
+
 def create_gradio_dashboard() -> gr.Blocks:
     """Builds the Gradio Dashboard layout with 1.0s auto-refresh Timer."""
-    with gr.Blocks(theme=gr.themes.Soft(primary_hue="blue", neutral_hue="slate")) as demo:
+    with gr.Blocks(
+        theme=gr.themes.Soft(primary_hue="blue", neutral_hue="slate")
+    ) as demo:
         gr.Markdown("# 🛸 NeuroSwarm-AutoML Live Streaming Dashboard")
-        gr.Markdown("Real-time GPU VRAM ticker, bi-level convergence graphs, and active Pareto DAG topology viewer.")
+        gr.Markdown(
+            "Real-time GPU VRAM ticker, bi-level convergence graphs, and active Pareto DAG topology viewer."
+        )
 
         # Auto-refresh timer ticking every 1.0 second
         timer = gr.Timer(1.0)
@@ -229,13 +257,13 @@ def create_gradio_dashboard() -> gr.Blocks:
         timer.tick(
             fn=fetch_live_dashboard_data,
             inputs=[],
-            outputs=[plot_output, dag_output, summary_output]
+            outputs=[plot_output, dag_output, summary_output],
         )
 
         demo.load(
             fn=fetch_live_dashboard_data,
             inputs=[],
-            outputs=[plot_output, dag_output, summary_output]
+            outputs=[plot_output, dag_output, summary_output],
         )
 
     return demo
@@ -246,7 +274,9 @@ gradio_app = create_gradio_dashboard()
 app = gr.mount_gradio_app(app, gradio_app, path="/ui")
 
 
-def launch_dashboard(telemetry_mgr: Optional[SearchTelemetryManager] = None, port: int = 8000):
+def launch_dashboard(
+    telemetry_mgr: Optional[SearchTelemetryManager] = None, port: int = 8000
+):
     """Starts the FastAPI dashboard server."""
     if telemetry_mgr:
         set_global_telemetry(telemetry_mgr)
@@ -258,11 +288,15 @@ def launch_dashboard(telemetry_mgr: Optional[SearchTelemetryManager] = None, por
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="NeuroSwarm Live Web Dashboard")
-    parser.add_argument("--port", type=int, default=8000, help="Port to host the dashboard")
+    parser.add_argument(
+        "--port", type=int, default=8000, help="Port to host the dashboard"
+    )
     args = parser.parse_args()
 
     dummy_telemetry = SearchTelemetryManager(log_dir="./runs/demo_dashboard")
-    dummy_telemetry.log_generation({"generation": 1, "best_fitness": 0.421, "mean_fitness": 0.310})
+    dummy_telemetry.log_generation(
+        {"generation": 1, "best_fitness": 0.421, "mean_fitness": 0.310}
+    )
     set_global_telemetry(dummy_telemetry)
 
     launch_dashboard(port=args.port)

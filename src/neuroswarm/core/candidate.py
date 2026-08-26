@@ -18,6 +18,7 @@ class Candidate:
     Composite agent representing a neural architecture and its hyperparameter state,
     with hardware-aware constraint evaluation.
     """
+
     # Unique identifier
     candidate_id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
 
@@ -26,24 +27,28 @@ class Candidate:
 
     # Continuous Hyperparameters (PSO-DE Space)
     # Hyperparams vector convention: [log10(lr), momentum/beta1, weight_decay, batch_size_exp]
-    hyperparams: np.ndarray = field(default_factory=lambda: np.zeros(4, dtype=np.float64))
+    hyperparams: np.ndarray = field(
+        default_factory=lambda: np.zeros(4, dtype=np.float64)
+    )
     velocity: np.ndarray = field(default_factory=lambda: np.zeros(4, dtype=np.float64))
 
     # Personal Best Memory for PSO
-    pbest_hyperparams: np.ndarray = field(default_factory=lambda: np.zeros(4, dtype=np.float64))
+    pbest_hyperparams: np.ndarray = field(
+        default_factory=lambda: np.zeros(4, dtype=np.float64)
+    )
     pbest_score: float = float("-inf")
 
     # Fitness & Performance Metadata
-    fitness: float = float("-inf")          # Raw validation accuracy or surrogate score
+    fitness: float = float("-inf")  # Raw validation accuracy or surrogate score
     constrained_fitness: float = float("-inf")  # Latency/FLOP-penalized score
-    uncertainty: float = 1.0                # Surrogate estimation variance (sigma)
+    uncertainty: float = 1.0  # Surrogate estimation variance (sigma)
     evaluated_epochs: int = 0
-    is_ground_truth: bool = False           # True if evaluated via actual PyTorch training
+    is_ground_truth: bool = False  # True if evaluated via actual PyTorch training
 
     # Hardware & Resource Metrics
     param_count: int = 0
     flops: int = 0
-    latency_ms: float = 0.0                 # Measured hardware inference latency in ms
+    latency_ms: float = 0.0  # Measured hardware inference latency in ms
 
     def __post_init__(self):
         """Ensure initial personal best matches starting position if uninitialized."""
@@ -61,7 +66,7 @@ class Candidate:
         target_latency_ms: float = 0.0,
         alpha: float = 0.05,
         target_flops: int = 0,
-        beta: float = 0.0
+        beta: float = 0.0,
     ) -> float:
         """
         Calculates latency and FLOP penalized fitness score:

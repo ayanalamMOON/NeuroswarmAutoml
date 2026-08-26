@@ -18,6 +18,7 @@ from neuroswarm.surrogates.gp_estimator import GaussianProcessSurrogate
 
 try:
     from neuroswarm.utils.telemetry import SearchTelemetryManager
+
     HAS_TELEMETRY = True
 except ImportError:
     HAS_TELEMETRY = False
@@ -44,7 +45,9 @@ class BiLevelCoEvolutionEngine:
         flops_beta: float = 0.0,
     ):
         self.population_size = population_size
-        self.ga_opt = ga_optimizer or TopologyGAOptimizer(population_size=population_size)
+        self.ga_opt = ga_optimizer or TopologyGAOptimizer(
+            population_size=population_size
+        )
         self.pso_opt = pso_optimizer or ContinuousPSODE(population_size=population_size)
         self.surrogate = surrogate or GaussianProcessSurrogate()
         self.telemetry = telemetry
@@ -54,7 +57,7 @@ class BiLevelCoEvolutionEngine:
         self.latency_alpha = latency_alpha
         self.target_flops = target_flops
         self.flops_beta = flops_beta
-        self.use_hardware_aware = (target_latency_ms > 0.0 or target_flops > 0)
+        self.use_hardware_aware = target_latency_ms > 0.0 or target_flops > 0
 
         self.global_best_candidate: Optional[Candidate] = None
         self.history: List[Dict[str, Any]] = []
@@ -64,7 +67,7 @@ class BiLevelCoEvolutionEngine:
         candidate: Candidate,
         eval_fn: Callable,
         epochs: int,
-        dataset_config: Dict[str, Any]
+        dataset_config: Dict[str, Any],
     ) -> Candidate:
         """Executes ground-truth training and calculates hardware-aware fitness score."""
         res = eval_fn(candidate, epochs=epochs, config=dataset_config)
@@ -89,7 +92,7 @@ class BiLevelCoEvolutionEngine:
             target_latency_ms=self.target_latency_ms,
             alpha=self.latency_alpha,
             target_flops=self.target_flops,
-            beta=self.flops_beta
+            beta=self.flops_beta,
         )
         candidate.update_pbest(use_constrained=self.use_hardware_aware)
         return candidate
@@ -112,21 +115,25 @@ class BiLevelCoEvolutionEngine:
         4. Train selected candidates for short epochs with hardware-aware penalties.
         5. Stream VRAM and generation progress to telemetry manager.
         """
-        logger.info(f"\n--- Bi-Level Generation [{current_gen}/{max_gens}] (Hardware-Aware: {self.use_hardware_aware}) ---")
+        logger.info(
+            f"\n--- Bi-Level Generation [{current_gen}/{max_gens}] (Hardware-Aware: {self.use_hardware_aware}) ---"
+        )
 
         # Step 1: Continuous Parameter Velocity Update (PSO-DE)
         try:
             population = self.pso_opt.step(
-                population, current_gen, max_gens,
+                population,
+                current_gen,
+                max_gens,
                 global_best=self.global_best_candidate,
-                use_constrained=self.use_hardware_aware
+                use_constrained=self.use_hardware_aware,
             )
         except TypeError:
             try:
                 population = self.pso_opt.step(
                     population=population,
                     global_best=self.global_best_candidate,
-                    use_constrained=self.use_hardware_aware
+                    use_constrained=self.use_hardware_aware,
                 )
             except TypeError:
                 population = self.pso_opt.step(population, current_gen, max_gens)
@@ -134,14 +141,15 @@ class BiLevelCoEvolutionEngine:
         # Step 2: Discrete Topology Evolution (GA)
         try:
             population = self.ga_opt.step(
-                population, current_gen, max_gens,
-                use_constrained=self.use_hardware_aware
+                population,
+                current_gen,
+                max_gens,
+                use_constrained=self.use_hardware_aware,
             )
         except TypeError:
             try:
                 population = self.ga_opt.step(
-                    population=population,
-                    use_constrained=self.use_hardware_aware
+                    population=population, use_constrained=self.use_hardware_aware
                 )
             except TypeError:
                 population = self.ga_opt.step(population, current_gen, max_gens)
@@ -158,16 +166,20 @@ class BiLevelCoEvolutionEngine:
                         target_latency_ms=self.target_latency_ms,
                         alpha=self.latency_alpha,
                         target_flops=self.target_flops,
-                        beta=self.flops_beta
+                        beta=self.flops_beta,
                     )
 
             # Sort by effective fitness to select top candidates for ground-truth evaluation
             population.sort(
-                key=lambda c: c.effective_fitness(use_constrained=self.use_hardware_aware),
-                reverse=True
+                key=lambda c: c.effective_fitness(
+                    use_constrained=self.use_hardware_aware
+                ),
+                reverse=True,
             )
             eval_cutoff = max(2, int(self.population_size * 0.20))
-            candidates_to_eval = [c for c in population[:eval_cutoff] if not c.is_ground_truth]
+            candidates_to_eval = [
+                c for c in population[:eval_cutoff] if not c.is_ground_truth
+            ]
         else:
             # Warm-start phase: evaluate uninitialized candidates
             candidates_to_eval = [c for c in population if not c.is_ground_truth]
@@ -182,18 +194,22 @@ class BiLevelCoEvolutionEngine:
             if len(evaluated_samples) >= 5:
                 try:
                     self.surrogate.fit(evaluated_samples)
-                    logger.info(f"Surrogate GP refitted on {len(evaluated_samples)} ground truth samples.")
+                    logger.info(
+                        f"Surrogate GP refitted on {len(evaluated_samples)} ground truth samples."
+                    )
                 except Exception as e:
                     logger.warning(f"Surrogate GP fitting skipped ({e}).")
 
         # Track global best candidate based on effective fitness
-        current_best = max(population, key=lambda c: c.effective_fitness(use_constrained=self.use_hardware_aware))
+        current_best = max(
+            population,
+            key=lambda c: c.effective_fitness(use_constrained=self.use_hardware_aware),
+        )
         is_new_discovery = False
 
-        if (
-            self.global_best_candidate is None
-            or current_best.effective_fitness(self.use_hardware_aware) > self.global_best_candidate.effective_fitness(self.use_hardware_aware)
-        ):
+        if self.global_best_candidate is None or current_best.effective_fitness(
+            self.use_hardware_aware
+        ) > self.global_best_candidate.effective_fitness(self.use_hardware_aware):
             self.global_best_candidate = current_best.clone()
             is_new_discovery = True
 
@@ -202,12 +218,18 @@ class BiLevelCoEvolutionEngine:
         gen_metrics = {
             "generation": current_gen,
             "best_fitness": best_cand.fitness if best_cand else 0.0,
-            "best_constrained_fitness": best_cand.constrained_fitness if best_cand else 0.0,
+            "best_constrained_fitness": (
+                best_cand.constrained_fitness if best_cand else 0.0
+            ),
             "best_latency_ms": best_cand.latency_ms if best_cand else 0.0,
             "best_params": best_cand.param_count if best_cand else 0,
-            "mean_fitness": float(np.mean([c.effective_fitness(self.use_hardware_aware) for c in population])),
+            "mean_fitness": float(
+                np.mean(
+                    [c.effective_fitness(self.use_hardware_aware) for c in population]
+                )
+            ),
             "surrogate_fitted": getattr(self.surrogate, "is_fitted", False),
-            "best_candidate_id": best_cand.candidate_id if best_cand else "N/A"
+            "best_candidate_id": best_cand.candidate_id if best_cand else "N/A",
         }
         self.history.append(gen_metrics)
 
@@ -220,7 +242,7 @@ class BiLevelCoEvolutionEngine:
                         candidate_id=best_cand.candidate_id,
                         accuracy=best_cand.fitness,
                         latency_ms=best_cand.latency_ms,
-                        params=best_cand.param_count
+                        params=best_cand.param_count,
                     )
             except Exception as e:
                 logger.warning(f"Telemetry logging encountered an error: {e}")

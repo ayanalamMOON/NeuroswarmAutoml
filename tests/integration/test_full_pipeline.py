@@ -35,7 +35,9 @@ def test_graph_embedder_dimension():
     )
 
     feat = embedder.extract_features(cand)
-    assert feat.shape == (embedder.embedding_dim,), f"Expected dim {embedder.embedding_dim}, got {feat.shape}"
+    assert feat.shape == (
+        embedder.embedding_dim,
+    ), f"Expected dim {embedder.embedding_dim}, got {feat.shape}"
     assert not np.any(np.isnan(feat)), "Feature vector contains NaNs"
 
 
@@ -111,6 +113,7 @@ def test_bilevel_coevolution_single_generation():
 def test_model_exporter():
     """Ensure ModelExporter exports TorchScript models successfully."""
     from neuroswarm.search_space.dynamic_builder import DynamicNeuralNetwork
+
     dag_space = DAGSearchSpace(min_nodes=4, max_nodes=6)
     dag = dag_space.sample_random_dag()
 
@@ -129,4 +132,3 @@ def test_model_exporter():
             filename="test_model.pt",
         )
         assert os.path.exists(ts_path)
-
