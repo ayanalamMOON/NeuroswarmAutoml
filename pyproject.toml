@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,6 +8,18 @@ version = "0.1.0"
 description = "A Neural Architecture Search and AutoML engine using Evolutionary Algorithms, PSO-DE, and Surrogate Models."
 readme = "README.md"
 requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Md Ayan Alam" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 dependencies = [
     "torch>=2.2.0",
     "torchvision>=0.17.0",
@@ -22,7 +34,30 @@ dependencies = [
     "pydantic>=2.6.0",
     "matplotlib>=3.8.0",
     "seaborn>=0.13.0",
+    "fastapi>=0.95.0",
+    "uvicorn>=0.21.0",
+    "gradio>=3.30.0",
+    "onnx>=1.14.0",
+    "onnxruntime>=1.15.0",
 ]
+
+[project.optional-dependencies]
+ray = ["ray[default]>=2.5.0"]
+dev = [
+    "pytest>=7.3.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.3.0",
+    "flake8>=6.0.0",
+    "mypy>=1.3.0",
+    "build>=0.10.0",
+    "twine>=4.0.2",
+]
+
+[project.scripts]
+neuroswarm = "neuroswarm.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

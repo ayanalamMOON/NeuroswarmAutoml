@@ -1,0 +1,22 @@
+# Include top-level documentation and project configuration files
+include README.md
+include LICENSE*
+include pyproject.toml
+include .flake8
+include MANIFEST.in
+
+# Include benchmark and utility execution scripts
+recursive-include scripts *.py
+recursive-include src/neuroswarm/scripts *.py
+
+# Include configuration templates, JSON schemas, and web static assets
+recursive-include src/neuroswarm/templates *
+recursive-include src/neuroswarm *.json *.yaml *.yml
+
+# Exclude compiled Python artifacts, cache directories, and OS files
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude *.so
+global-exclude .DS_Store
+global-exclude *.png
+global-exclude *.jpg
