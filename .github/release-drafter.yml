@@ -1,0 +1,24 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+categories:
+  - title: '🚀 Features'
+    labels:
+      - 'feature'
+      - 'feat'
+  - title: '🐛 Bug Fixes'
+    labels:
+      - 'fix'
+      - 'bug'
+  - title: '⚡ Performance & Optimization'
+    labels:
+      - 'perf'
+      - 'performance'
+  - title: '🧰 Maintenance & CI/CD'
+    labels:
+      - 'chore'
+      - 'ci'
+      - 'style'
+      - 'refactor'
+change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
+version-resolver:
+  default-bump: patch
